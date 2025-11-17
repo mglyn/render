@@ -21,6 +21,7 @@ public:
     bool shouldClose() const;
     void pollEvents();
     bool isKeyDown(int key) const;
+    bool isKeyJustPressed(int key); // 新增函数
     float deltaTime() const { return m_deltaTime; }
     double time() const { return m_time; }
     double fps() const { return m_fps; }
@@ -39,4 +40,5 @@ private:
     int m_frameCount = 0;
     double m_fps = 0.0;
     double m_lastFpsUpdate = 0.0;
+    std::unordered_map<int, bool> m_lastKeyState; // 存储上一帧的按键状态
 };

@@ -39,6 +39,14 @@ void Camera::processRotationInput(bool left, bool right, bool up, bool down, flo
     updateVectors();
 }
 
+glm::mat4 Camera::getViewMatrix() const {
+    return glm::lookAt(position, position + front, up);
+}
+
+glm::mat4 Camera::getProjectionMatrix(float aspectRatio) const {
+    return glm::perspective(glm::radians(fov), aspectRatio, 0.1f, 100.0f);
+}
+
 void Camera::updateVectors(){
     glm::vec3 f;
     f.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));

@@ -7,11 +7,12 @@
 #include "scene/camera.h"
 #include "gpu/gpu_resources.h"
 #include "scene/shape.h"
+#include "scene/scene.h"
 
 // CUDA 路径追踪渲染器（原始实现迁移）
 class CudaPathTracingRenderer : public RendererBase {
 public:
-    bool init(int width, int height, GPUResources* gpu) override;
+    bool init(int width, int height, GPUResources* gpu, Scene* scene) override;
     void renderFrame(Camera& camera) override;
     void destroy() override;
     const char* name() const override { return "CudaPathTracing"; }
@@ -42,4 +43,5 @@ private:
     void resetAccumulation();
     bool cameraChanged(const Camera& camera) const;
     void updateCameraState(const Camera& camera);
+    bool uploadScene();
 };

@@ -14,6 +14,7 @@ add_executable(raytracer                # 定义主可执行文件raytracer
   src/app/main.cpp                      # 主入口
   src/gpu/path_tracer.cu                # CUDA路径追踪核
   src/scene/camera.cpp                  # 相机实现
+  src/scene/scene.cpp                   # 场景管理
   # Shape POD 定义在 shape.h（仅头文件）；后续如需单独加速结构可新增 .cu
   src/gpu/gpu_resources.cpp             # GPU资源管理
   src/app/window.cpp                    # 窗口管理

@@ -17,6 +17,10 @@ public:
     glm::vec3 getUp() const { return up; }
     float getFov() const { return fov; }
 
+    // 新增：获取视图和投影矩阵
+    glm::mat4 getViewMatrix() const;
+    glm::mat4 getProjectionMatrix(float aspectRatio) const;
+
 private:
     void updateVectors();
     glm::vec3 position;

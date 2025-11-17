@@ -35,17 +35,61 @@ GLuint CudaPathTracingRenderer::compileShader(GLenum type, const char *src)
     return s;
 }
 
-bool CudaPathTracingRenderer::init(int width, int height, GPUResources *gpu)
+bool CudaPathTracingRenderer::uploadScene() {
+    if (!scene_ || scene_->getShapes().empty()) {
+        _shapeCount = 0;
+        if (_shapesDev) {
+            cudaFree(_shapesDev);
+            _shapesDev = nullptr;
+        }
+        return true; // No scene to upload, but not an error
+    }
+
+    const auto& hostShapes = scene_->getShapes();
+    _shapeCount = static_cast<int>(hostShapes.size());
+
+    // Free existing memory if shape count differs or buffer not allocated
+    if (_shapesDev) {
+        // A more robust check would be to see if the scene content has actually changed.
+        // For now, we re-upload if the pointer is different, which happens on init.
+        cudaFree(_shapesDev);
+        _shapesDev = nullptr;
+    }
+
+    cudaError_t err = cudaMalloc(&_shapesDev, _shapeCount * sizeof(Shape));
+    if (err != cudaSuccess) {
+        std::cerr << "Failed to allocate device memory for shapes: " << cudaGetErrorString(err) << std::endl;
+        return false;
+    }
+
+    err = cudaMemcpy(_shapesDev, hostShapes.data(), _shapeCount * sizeof(Shape), cudaMemcpyHostToDevice);
+    if (err != cudaSuccess) {
+        std::cerr << "Failed to copy shapes to device: " << cudaGetErrorString(err) << std::endl;
+        cudaFree(_shapesDev);
+        _shapesDev = nullptr;
+        return false;
+    }
+
+    std::cout << "Uploaded " << _shapeCount << " shapes to GPU." << std::endl;
+    return true;
+}
+
+bool CudaPathTracingRenderer::init(int width, int height, GPUResources *gpu, Scene* scene)
 {
     _width = width;
     _height = height;
     _gpu = gpu;
+    scene_ = scene; // Store scene pointer
+
     if (!initShaders())
         return false;
     if (!initQuad())
         return false;
     if (!allocateAccumBuffer())
         return false;
+    if (!uploadScene()) // Upload scene data to GPU
+        return false;
+
     return true;
 }
 
@@ -156,58 +200,18 @@ void CudaPathTracingRenderer::renderFrame(Camera &camera)
     if (cameraChanged(camera))
         resetAccumulation();
     updateCameraState(camera);
+
+    // 检查场景是否有变动，如有则重新上传
+    if (scene_ && scene_->isDirty()) {
+        uploadScene();
+        scene_->clearDirty();
+        resetAccumulation(); // 场景变化，需要重置累积
+    }
+
     unsigned int *devPtr = nullptr;
     size_t size = 0;
     if (_gpu->mapWrite(reinterpret_cast<void **>(&devPtr), &size))
     {
-        if (_shapesDev == nullptr)
-        {
-            std::vector<Shape> hostShapes;
-            {
-                Shape s{};
-                s.type = SHAPE_PLANE;
-                s.data.pln.point = glm::vec3(0, -1, 0);
-                s.data.pln.normal = glm::vec3(0, 1, 0);
-                s.data.pln.mat.albedo = glm::vec3(0.8f);
-                s.data.pln.mat.metallic = 0.0f;
-                s.data.pln.mat.emission = glm::vec3(0);
-                hostShapes.push_back(s);
-            }
-            {
-                Shape s{};
-                s.type = SHAPE_SPHERE;
-                s.data.sph.center = glm::vec3(-1, 0, -3);
-                s.data.sph.radius = 0.7f;
-                s.data.sph.mat.albedo = glm::vec3(0.9f, 0.3f, 0.3f);
-                s.data.sph.mat.metallic = 0.3f;
-                s.data.sph.mat.emission = glm::vec3(0);
-                hostShapes.push_back(s);
-            }
-            {
-                Shape s{};
-                s.type = SHAPE_SPHERE;
-                s.data.sph.center = glm::vec3(0.8f, 1.0f, -2.0f);
-                s.data.sph.radius = 0.3f;
-                s.data.sph.mat.albedo = glm::vec3(0.2f, 0.8f, 0.3f);
-                s.data.sph.mat.metallic = 0.0f;
-                s.data.sph.mat.emission = glm::vec3(0, 30, 0);
-                hostShapes.push_back(s);
-            }
-            {
-                Shape s{};
-                s.type = SHAPE_TRIANGLE;
-                s.data.tri.v0 = glm::vec3(-0.5f, 0.2f, -1.5f);
-                s.data.tri.v1 = glm::vec3(0.3f, 0.4f, -1.4f);
-                s.data.tri.v2 = glm::vec3(0.2f, 0.9f, -1.6f);
-                s.data.tri.mat.albedo = glm::vec3(0.3f, 0.4f, 0.9f);
-                s.data.tri.mat.metallic = 0.7f;
-                s.data.tri.mat.emission = glm::vec3(0);
-                hostShapes.push_back(s);
-            }
-            _shapeCount = (int)hostShapes.size();
-            cudaMalloc(reinterpret_cast<void **>(&_shapesDev), _shapeCount * sizeof(Shape));
-            cudaMemcpy(_shapesDev, hostShapes.data(), _shapeCount * sizeof(Shape), cudaMemcpyHostToDevice);
-        }
         constexpr int kSamplesPerPixel = 8;
         constexpr int kMaxDepth = 6;
         int nextAccum = _accumFrameCount + 1;

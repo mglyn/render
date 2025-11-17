@@ -46,7 +46,21 @@ void Window::beginFrame() {
 }
 void Window::endFrame() { glfwSwapBuffers(m_window); }
 bool Window::shouldClose() const { return m_window && glfwWindowShouldClose(m_window); }
-void Window::pollEvents() { glfwPollEvents(); }
+void Window::pollEvents() { 
+    // 在处理事件前，更新上一帧的按键状态
+    // 这里我们只关心在main.cpp中用到的按键
+    m_lastKeyState[GLFW_KEY_T] = isKeyDown(GLFW_KEY_T);
+    // 如果有更多按键需要单次触发检测，在这里添加
+    
+    glfwPollEvents(); 
+}
+
+bool Window::isKeyJustPressed(int key) {
+    bool currentState = isKeyDown(key);
+    bool previousState = m_lastKeyState.count(key) ? m_lastKeyState[key] : false;
+    return currentState && !previousState;
+}
+
 bool Window::isKeyDown(int key) const { return m_window && glfwGetKey(m_window, key) == GLFW_PRESS; }
 void Window::updateFPS() {
     double now = m_time;
