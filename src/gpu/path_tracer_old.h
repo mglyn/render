@@ -11,8 +11,6 @@ extern "C" void launchPathTracer(
     const Camera& camera,
     const Shape* shapes,
     int shapeCount,
-    const ModelGPU* models,
-    int modelCount,
     int samplesPerPixel,
     int maxDepth,
     glm::vec3* accumBuffer,

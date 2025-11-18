@@ -60,36 +60,28 @@ bool Application::initialize() {
 }
 
 void Application::createScene() {
-    // Cornell Box
-    // Red wall
-    _scene->addShape(Shape::make_sphere(glm::vec3(-1001.f, 0.f, 0.f), 1000.f, 
-        MaterialPOD{glm::vec3(0.65f, 0.05f, 0.05f), 0.0f}));
-    // Green wall
-    _scene->addShape(Shape::make_sphere(glm::vec3(1001.f, 0.f, 0.f), 1000.f, 
-        MaterialPOD{glm::vec3(0.12f, 0.45f, 0.15f), 0.0f}));
-    // Floor
+    // 加载 OBJ 模型
+    MaterialPOD dragonMaterial{glm::vec3(0.7f, 0.7f, 0.9f), 0.1f}; // 淡蓝色，轻微金属感
+    if (_scene->addModelFromObj("../../model/simple_dragon.obj", dragonMaterial)) {
+        std::cout << "Successfully loaded simple_dragon.obj" << std::endl;
+    } else {
+        std::cerr << "Failed to load simple_dragon.obj" << std::endl;
+        // 如果加载失败，添加一个测试球体
+        _scene->addShape(Shape::make_sphere(glm::vec3(0.0f, 0.0f, 0.0f), 0.5f, 
+            MaterialPOD{glm::vec3(0.7f, 0.7f, 0.9f), 0.1f}));
+    }
+
+    // 添加一个简单的地面
     _scene->addShape(Shape::make_sphere(glm::vec3(0.f, -1001.f, 0.f), 1000.f, 
-        MaterialPOD{glm::vec3(0.73f, 0.73f, 0.73f)}));
-    // Ceiling
-    _scene->addShape(Shape::make_sphere(glm::vec3(0.f, 1001.f, 0.f), 1000.f, 
-        MaterialPOD{glm::vec3(0.73f, 0.73f, 0.73f)}));
-    // Back wall
-    _scene->addShape(Shape::make_sphere(glm::vec3(0.f, 0.f, -1001.f), 1000.f, 
-        MaterialPOD{glm::vec3(0.73f, 0.73f, 0.73f)}));
+        MaterialPOD{glm::vec3(0.8f, 0.8f, 0.8f)}));
 
-    // Metal sphere
-    _scene->addShape(Shape::make_sphere(glm::vec3(-0.4f, -0.7f, 0.5f), 0.3f, 
-        MaterialPOD{glm::vec3(0.8f, 0.6f, 0.2f), 1.0f}));
-    // Glass sphere
-    _scene->addShape(Shape::make_sphere(glm::vec3(0.3f, -0.4f, -0.2f), 0.2f, 
-        MaterialPOD{glm::vec3(1.0f, 1.0f, 1.0f), 1.0f, glm::vec3(0.0f), 1.5f}));
-    // Diffuse sphere
-    _scene->addShape(Shape::make_sphere(glm::vec3(0.6f, -0.7f, 0.f), 0.3f, 
-        MaterialPOD{glm::vec3(0.1f, 0.2f, 0.5f)}));
+    // 添加光源
+    _scene->addShape(Shape::make_sphere(glm::vec3(2.0f, 2.0f, 2.0f), 0.2f, 
+        MaterialPOD{glm::vec3(0.0f), 0.0f, glm::vec3(1.0f, 1.0f, 0.9f) * 8.0f}));
 
-    // Light source
-    _scene->addShape(Shape::make_sphere(glm::vec3(0.0f, 0.9f, 0.0f), 0.1f, 
-        MaterialPOD{glm::vec3(0.0f), 0.0f, glm::vec3(1.0f, 0.8f, 0.6f) * 5.0f}));
+    // 添加一个参考球体
+    _scene->addShape(Shape::make_sphere(glm::vec3(-1.5f, 0.5f, 0.0f), 0.3f, 
+        MaterialPOD{glm::vec3(0.9f, 0.2f, 0.2f), 0.0f}));
 }
 
 void Application::handleInput(float deltaTime) {

@@ -75,6 +75,38 @@ bool CudaPathTracingRenderer::uploadScene() {
     return true;
 }
 
+bool CudaPathTracingRenderer::uploadBVH() {
+    if (!scene_) return false;
+    
+    // 上传BVH数据到GPU
+    if (!scene_->uploadBVHToGPU()) {
+        std::cerr << "Failed to upload BVH to GPU" << std::endl;
+        return false;
+    }
+    
+    const auto& gpuModels = scene_->getGPUModels();
+    _modelCount = static_cast<int>(gpuModels.size());
+    
+    if (_modelCount > 0) {
+        // 分配并上传模型数据结构
+        cudaError_t err = cudaMalloc(&_modelsDev, _modelCount * sizeof(ModelGPU));
+        if (err != cudaSuccess) {
+            std::cerr << "Failed to allocate device memory for models: " << cudaGetErrorString(err) << std::endl;
+            return false;
+        }
+        
+        err = cudaMemcpy(_modelsDev, gpuModels.data(), _modelCount * sizeof(ModelGPU), cudaMemcpyHostToDevice);
+        if (err != cudaSuccess) {
+            std::cerr << "Failed to copy models to device: " << cudaGetErrorString(err) << std::endl;
+            return false;
+        }
+        
+        std::cout << "Uploaded BVH data for " << _modelCount << " models to GPU." << std::endl;
+    }
+    
+    return true;
+}
+
 bool CudaPathTracingRenderer::init(int width, int height, GPUResources *gpu, Scene* scene)
 {
     _width = width;
@@ -204,7 +236,10 @@ void CudaPathTracingRenderer::renderFrame(Camera &camera)
 
     // 检查场景是否有变动，如有则重新上传
     if (scene_ && scene_->isDirty()) {
+        // 上传基础形状（球体、平面等）
         uploadScene();
+        // 上传BVH模型数据
+        uploadBVH();
         scene_->clearDirty();
         resetAccumulation(); // 场景变化，需要重置累积
     }
@@ -216,7 +251,7 @@ void CudaPathTracingRenderer::renderFrame(Camera &camera)
         constexpr int kSamplesPerPixel = 8;
         constexpr int kMaxDepth = 5;
         int nextAccum = _accumFrameCount + 1;
-        launchPathTracer(devPtr, _width, _height, camera, _shapesDev, _shapeCount, kSamplesPerPixel, kMaxDepth, _accumBufferDev, nextAccum, _frame);
+        launchPathTracer(devPtr, _width, _height, camera, _shapesDev, _shapeCount, _modelsDev, _modelCount, kSamplesPerPixel, kMaxDepth, _accumBufferDev, nextAccum, _frame);
         _gpu->unmapWrite();
         _gpu->finalizeWrite();
         _accumFrameCount++;
@@ -264,5 +299,12 @@ void CudaPathTracingRenderer::destroy()
     {
         cudaFree(_shapesDev);
         _shapesDev = nullptr;
+    }
+    if (_modelsDev) {
+        cudaFree(_modelsDev);
+        _modelsDev = nullptr;
+    }
+    if (scene_) {
+        scene_->freeBVHGPU();
     }
 }
