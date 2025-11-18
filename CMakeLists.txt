@@ -12,6 +12,7 @@ find_package(OpenGL REQUIRED)
 # =====================
 add_executable(raytracer                # 定义主可执行文件raytracer
   src/app/main.cpp                      # 主入口
+  src/app/application.cpp               # 应用程序管理
   src/gpu/path_tracer.cu                # CUDA路径追踪核
   src/scene/camera.cpp                  # 相机实现
   src/scene/scene.cpp                   # 场景管理
@@ -21,6 +22,7 @@ add_executable(raytracer                # 定义主可执行文件raytracer
   src/app/window.cpp                    # 窗口管理
   src/renderer/cuda_path_tracing_renderer.cpp  # CUDA路径追踪渲染器
   src/renderer/wireframe_renderer.cpp          # 线框渲染器
+  src/app/ui.cpp                        # UI实现
 )
 
 target_include_directories(raytracer PRIVATE 
@@ -35,6 +37,11 @@ target_include_directories(raytracer PRIVATE
 set(GLFW_ROOT "${CMAKE_SOURCE_DIR}/thirdParty/glfw-3.3.8.bin.WIN64") # GLFW根目录
 set(GLAD_ROOT "${CMAKE_SOURCE_DIR}/thirdParty/glad")                  # GLAD根目录
 set(GLM_ROOT "${CMAKE_SOURCE_DIR}/thirdParty/glm-0.9.9.8")           # GLM根目录
+
+# =============
+# ImGui
+# =============
+add_subdirectory(thirdParty/imgui-1.92.4)
 
 # =============
 # GLFW 头文件
@@ -67,7 +74,7 @@ endif()
 # =====================
 set(GLFW_LIB "${GLFW_ROOT}/lib-vc2022/glfw3.lib") # 静态库路径
 if(EXISTS "${GLFW_LIB}")
-  target_link_libraries(raytracer PRIVATE "${GLFW_LIB}" OpenGL::GL) # 链接GLFW和OpenGL
+  target_link_libraries(raytracer PRIVATE "${GLFW_LIB}" OpenGL::GL imgui_lib) # 链接GLFW, OpenGL和ImGui
   # 拷贝DLL到输出目录，保证运行时依赖
   file(GLOB GLFW_DLLS "${GLFW_ROOT}/lib-vc2022/*.dll" "${GLFW_ROOT}/*.dll")
   foreach(d ${GLFW_DLLS})
