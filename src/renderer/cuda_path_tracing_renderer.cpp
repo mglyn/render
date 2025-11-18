@@ -1,7 +1,8 @@
-#include "cuda_path_tracing_renderer.h"
 #include <iostream>
 #include <cstdio>
 #include <cuda_runtime.h>
+
+#include "cuda_path_tracing_renderer.h"
 #include "gpu/path_tracer.h"
 
 std::string CudaPathTracingRenderer::loadFile(const char *path)
@@ -213,7 +214,7 @@ void CudaPathTracingRenderer::renderFrame(Camera &camera)
     if (_gpu->mapWrite(reinterpret_cast<void **>(&devPtr), &size))
     {
         constexpr int kSamplesPerPixel = 8;
-        constexpr int kMaxDepth = 6;
+        constexpr int kMaxDepth = 5;
         int nextAccum = _accumFrameCount + 1;
         launchPathTracer(devPtr, _width, _height, camera, _shapesDev, _shapeCount, kSamplesPerPixel, kMaxDepth, _accumBufferDev, nextAccum, _frame);
         _gpu->unmapWrite();

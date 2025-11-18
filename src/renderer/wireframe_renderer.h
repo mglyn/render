@@ -1,11 +1,12 @@
 #pragma once
-#include "renderer_base.h"
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <vector>
+
 #include "scene/camera.h"
 #include "scene/shape.h"
 #include "gpu/gpu_resources.h"
+#include "renderer_base.h"
 
 class WireframeRenderer : public RendererBase {
 public:

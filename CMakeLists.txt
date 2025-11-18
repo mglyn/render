@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 3.18)  # 要求CMake最低版本3.18，支持现代CUDA/C++特性
-project(real_time_cuda_gl LANGUAGES CXX CUDA) # 定义项目名和支持的语言
-set(CMAKE_CXX_STANDARD 20)             # 全局C++标准为C++20
+cmake_minimum_required(VERSION 3.18)  
+project(real_time_cuda_gl LANGUAGES CXX CUDA) 
+set(CMAKE_CXX_STANDARD 20)             
 
 # ============
 # 查找OpenGL
 # ============
-find_package(OpenGL REQUIRED)           # 查找并要求OpenGL库
+find_package(OpenGL REQUIRED)          
 
 # =====================
 # 可执行文件与源码组织
@@ -15,22 +15,20 @@ add_executable(raytracer                # 定义主可执行文件raytracer
   src/gpu/path_tracer.cu                # CUDA路径追踪核
   src/scene/camera.cpp                  # 相机实现
   src/scene/scene.cpp                   # 场景管理
+  src/gpu/intersect.cu               # 场景求交实现
   # Shape POD 定义在 shape.h（仅头文件）；后续如需单独加速结构可新增 .cu
   src/gpu/gpu_resources.cpp             # GPU资源管理
   src/app/window.cpp                    # 窗口管理
-  src/app/cuda_path_tracing_renderer.cpp  # CUDA路径追踪渲染器
-  src/app/wireframe_renderer.cpp          # 线框渲染器
+  src/renderer/cuda_path_tracing_renderer.cpp  # CUDA路径追踪渲染器
+  src/renderer/wireframe_renderer.cpp          # 线框渲染器
 )
 
-# =====================
-# 头文件包含路径
-# =====================
 target_include_directories(raytracer PRIVATE 
   ${CMAKE_SOURCE_DIR}/src              # 根src目录（头文件）
   ${CMAKE_SOURCE_DIR}/src/app          # app层
   ${CMAKE_SOURCE_DIR}/src/scene        # scene层
-  ${CMAKE_SOURCE_DIR}/src/gpu)         # gpu层
-
+  ${CMAKE_SOURCE_DIR}/src/gpu          # gpu层
+  ${CMAKE_SOURCE_DIR}/src/renderer)         
 # =====================
 # 第三方库路径设置
 # =====================

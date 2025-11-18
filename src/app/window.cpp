@@ -1,5 +1,6 @@
-#include "window.h"
 #include <iostream>
+
+#include "window.h"
 
 Window::~Window() {
     if (m_window) {

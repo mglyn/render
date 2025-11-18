@@ -1,8 +1,9 @@
-#include "wireframe_renderer.h"
-#include "scene/scene.h"
 #include <cstdio>
 #include <iostream>
 #include <glm/gtc/type_ptr.hpp>
+
+#include "wireframe_renderer.h"
+#include "scene/scene.h"
 
 std::string WireframeRenderer::loadFile(const char *path)
 {

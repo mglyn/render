@@ -2,12 +2,13 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+
 #include "scene/camera.h"
 #include "gpu/gpu_resources.h"
 #include "app/window.h"
-#include "app/renderer_base.h"
-#include "app/cuda_path_tracing_renderer.h"
-#include "app/wireframe_renderer.h"
+#include "renderer/renderer_base.h"
+#include "renderer/cuda_path_tracing_renderer.h"
+#include "renderer/wireframe_renderer.h"
 #include "scene/scene.h"
 
 int width = 1600, height = 900;
@@ -16,9 +17,9 @@ int width = 1600, height = 900;
 void createScene(Scene& scene) {
     // Cornell Box
     // Red wall
-    scene.addShape(Shape::make_sphere(glm::vec3(-1001.f, 0.f, 0.f), 1000.f, MaterialPOD{glm::vec3(0.65f, 0.05f, 0.05f)}));
+    scene.addShape(Shape::make_sphere(glm::vec3(-1001.f, 0.f, 0.f), 1000.f, MaterialPOD{glm::vec3(0.65f, 0.05f, 0.05f), 0.0f}));
     // Green wall
-    scene.addShape(Shape::make_sphere(glm::vec3(1001.f, 0.f, 0.f), 1000.f, MaterialPOD{glm::vec3(0.12f, 0.45f, 0.15f)}));
+    scene.addShape(Shape::make_sphere(glm::vec3(1001.f, 0.f, 0.f), 1000.f, MaterialPOD{glm::vec3(0.12f, 0.45f, 0.15f), 0.0f}));
     // Floor
     scene.addShape(Shape::make_sphere(glm::vec3(0.f, -1001.f, 0.f), 1000.f, MaterialPOD{glm::vec3(0.73f, 0.73f, 0.73f)}));
     // Ceiling

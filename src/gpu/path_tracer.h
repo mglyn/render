@@ -1,8 +1,8 @@
 #pragma once
-#include <vector>
 #include <glm/glm.hpp>
 
 #include "scene/shape.h"
+
 class Camera;
 extern "C" void launchPathTracer(
     unsigned int* pbo,
