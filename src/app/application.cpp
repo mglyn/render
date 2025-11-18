@@ -136,6 +136,7 @@ void Application::render() {
 
     // 渲染 UI
     ui::renderUI(_nextMode);
+    // ui::renderBVHDebugUI(_scene.get());
 
     ui::endFrame();
     _window->endFrame();

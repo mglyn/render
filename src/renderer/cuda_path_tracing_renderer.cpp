@@ -122,6 +122,15 @@ bool CudaPathTracingRenderer::init(int width, int height, GPUResources *gpu, Sce
         return false;
     if (!uploadScene()) // Upload scene data to GPU
         return false;
+    
+    // 上传BVH模型数据
+    if (!uploadBVH())
+        return false;
+    
+    // 清除脏标记，避免在第一次renderFrame时重复上传
+    if (scene_) {
+        scene_->clearDirty();
+    }
 
     return true;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 struct GLFWwindow;
+class Scene;
 
 namespace ui {
 
@@ -11,5 +12,6 @@ void endFrame();
 
 // 在这里添加你的UI组件声明
 void renderUI(int& rendererMode);
+void renderBVHDebugUI(const Scene* scene);
 
 } // namespace ui

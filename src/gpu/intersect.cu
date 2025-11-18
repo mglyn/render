@@ -111,9 +111,34 @@ __device__ bool intersectBVH(const ModelGPU* models, int modelCount, const Ray& 
                     }
                 }
             } else {
-                // 内部节点：添加子节点到栈
-                if (node.left >= 0 && stackPtr < 63) stack[stackPtr++] = node.left;
-                if (node.right >= 0 && stackPtr < 63) stack[stackPtr++] = node.right;
+                // 内部节点：基于射线方向优化子节点访问顺序
+                // 先访问射线方向更可能命中的子节点
+                bool visitLeftFirst = true;
+                if (node.left >= 0 && node.right >= 0) {
+                    // 计算射线方向与子节点位置关系
+                    const BVHNodeGPU& leftChild = model.bvhNodes[node.left];
+                    const BVHNodeGPU& rightChild = model.bvhNodes[node.right];
+                    
+                    // 比较子节点中心在主要方向上的位置
+                    glm::vec3 rayDir = r.direction();
+                    glm::vec3 leftCenter = (leftChild.minBounds + leftChild.maxBounds) * 0.5f;
+                    glm::vec3 rightCenter = (rightChild.minBounds + rightChild.maxBounds) * 0.5f;
+                    glm::vec3 rayOrigin = r.origin();
+                    
+                    float leftDot = glm::dot(rayDir, leftCenter - rayOrigin);
+                    float rightDot = glm::dot(rayDir, rightCenter - rayOrigin);
+                    
+                    visitLeftFirst = leftDot >= rightDot;
+                }
+                
+                // 按优化顺序添加子节点到栈
+                if (visitLeftFirst) {
+                    if (node.right >= 0 && stackPtr < 63) stack[stackPtr++] = node.right;
+                    if (node.left >= 0 && stackPtr < 63) stack[stackPtr++] = node.left;
+                } else {
+                    if (node.left >= 0 && stackPtr < 63) stack[stackPtr++] = node.left;
+                    if (node.right >= 0 && stackPtr < 63) stack[stackPtr++] = node.right;
+                }
             }
         }
     }
