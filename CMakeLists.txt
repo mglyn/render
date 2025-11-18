@@ -17,6 +17,7 @@ add_executable(raytracer                # 定义主可执行文件raytracer
   src/scene/camera.cpp                  # 相机实现
   src/scene/scene.cpp                   # 场景管理
   src/scene/model.cpp                   # 模型与BVH实现
+  src/bvh/bvh.cpp
   src/gpu/intersect.cu               # 场景求交实现
   # Shape POD 定义在 shape.h（仅头文件）；后续如需单独加速结构可新增 .cu
   src/gpu/gpu_resources.cpp             # GPU资源管理
@@ -30,6 +31,7 @@ target_include_directories(raytracer PRIVATE
   ${CMAKE_SOURCE_DIR}/src/app          # app层
   ${CMAKE_SOURCE_DIR}/src/scene        # scene层
   ${CMAKE_SOURCE_DIR}/src/gpu          # gpu层
+  ${CMAKE_SOURCE_DIR}/src/bvh
   ${CMAKE_SOURCE_DIR}/src/renderer)         
 # =====================
 # 第三方库路径设置
