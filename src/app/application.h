@@ -6,9 +6,7 @@
 #include "window.h"
 #include "scene/camera.h"
 #include "gpu/gpu_resources.h"
-#include "renderer/renderer_base.h"
 #include "renderer/cuda_path_tracing_renderer.h"
-#include "renderer/wireframe_renderer.h"
 #include "scene/scene.h"
 
 class Application {
@@ -23,7 +21,6 @@ public:
 private:
     void createScene();
     void handleInput(float deltaTime);
-    void update(float deltaTime);
     void render();
     void initRenderer(int mode);
 
@@ -38,8 +35,7 @@ private:
 
     // Renderers
     std::unique_ptr<CudaPathTracingRenderer> _pathRenderer;
-    std::unique_ptr<WireframeRenderer> _wfRenderer;
-    RendererBase* _currentRenderer;
+    CudaPathTracingRenderer* _currentRenderer = nullptr;
     int _currentMode;
     int _nextMode;
 

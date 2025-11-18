@@ -4,19 +4,19 @@
 #include <string>
 #include <vector>
 
-#include "renderer_base.h"
+#include <string>
 #include "scene/camera.h"
 #include "gpu/gpu_resources.h"
 #include "scene/shape.h"
 #include "scene/scene.h"
 
 // CUDA 路径追踪渲染器（原始实现迁移）
-class CudaPathTracingRenderer : public RendererBase {
+class CudaPathTracingRenderer {
 public:
-    bool init(int width, int height, GPUResources* gpu, Scene* scene) override;
-    void renderFrame(Camera& camera) override;
-    void destroy() override;
-    const char* name() const override { return "CudaPathTracing"; }
+    bool init(int width, int height, GPUResources* gpu, Scene* scene);
+    void renderFrame(Camera& camera);
+    void destroy();
+    const char* name() const { return "CudaPathTracing"; }
 private:
     int _width = 0;
     int _height = 0;
@@ -26,6 +26,7 @@ private:
     glm::vec3* _accumBufferDev = nullptr;
     Shape* _shapesDev = nullptr;
     int _shapeCount = 0;
+    Scene* scene_ = nullptr;
     // camera state for accumulation reset
     bool _hasPrevCamState = false;
     glm::vec3 _prevCamPos{};

@@ -46,7 +46,7 @@ bool CudaPathTracingRenderer::uploadScene() {
         return true; // No scene to upload, but not an error
     }
 
-    const auto& hostShapes = scene_->getShapes();
+    const auto hostShapes = scene_->getShapes();
     _shapeCount = static_cast<int>(hostShapes.size());
 
     // Free existing memory if shape count differs or buffer not allocated
@@ -63,7 +63,7 @@ bool CudaPathTracingRenderer::uploadScene() {
         return false;
     }
 
-    err = cudaMemcpy(_shapesDev, hostShapes.data(), _shapeCount * sizeof(Shape), cudaMemcpyHostToDevice);
+    err = cudaMemcpy(_shapesDev, hostShapes.data(), static_cast<size_t>(_shapeCount) * sizeof(Shape), cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
         std::cerr << "Failed to copy shapes to device: " << cudaGetErrorString(err) << std::endl;
         cudaFree(_shapesDev);

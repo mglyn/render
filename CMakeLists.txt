@@ -21,7 +21,6 @@ add_executable(raytracer                # 定义主可执行文件raytracer
   src/gpu/gpu_resources.cpp             # GPU资源管理
   src/app/window.cpp                    # 窗口管理
   src/renderer/cuda_path_tracing_renderer.cpp  # CUDA路径追踪渲染器
-  src/renderer/wireframe_renderer.cpp          # 线框渲染器
   src/app/ui.cpp                        # UI实现
 )
 

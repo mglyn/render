@@ -40,13 +40,7 @@ void endFrame() {
 void renderUI(int& rendererMode) {
     ImGui::Begin("Renderer Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
     
-    ImGui::Text("Select Rendering Mode:");
-    ImGui::Separator();
-    
-    static const char* rendererNames[] = { "Path Tracing", "Wireframe" };
-    if (ImGui::Combo("Renderer##combo", &rendererMode, rendererNames, IM_ARRAYSIZE(rendererNames))) {
-        ImGui::OpenPopup("RendererChangePopup");
-    }
+    static const char* rendererNames[] = { "Path Tracing" };
     
     ImGui::Spacing();
     ImGui::Separator();

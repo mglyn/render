@@ -50,8 +50,10 @@ bool Application::initialize() {
 
     // 初始化渲染器
     _pathRenderer = std::make_unique<CudaPathTracingRenderer>();
-    _wfRenderer = std::make_unique<WireframeRenderer>();
-    initRenderer(_currentMode);
+    _currentRenderer = _pathRenderer.get();
+    if (!_currentRenderer->init(_width, _height, _gpu.get(), _scene.get())) {
+        std::cerr << "Renderer init failed: " << _currentRenderer->name() << std::endl;
+    }
 
     _isRunning = true;
     return true;
@@ -134,14 +136,6 @@ void Application::handleInput(float deltaTime) {
     }
 }
 
-void Application::update(float deltaTime) {
-    // 检查渲染器模式是否改变
-    if (_nextMode != _currentMode) {
-        _currentMode = _nextMode;
-        initRenderer(_currentMode);
-    }
-}
-
 void Application::render() {
     _window->beginFrame();
     ui::beginFrame();
@@ -159,17 +153,9 @@ void Application::initRenderer(int mode) {
     if (_currentRenderer != nullptr) {
         _currentRenderer->destroy();
     }
-
-    switch (mode) {
-        case 0: _currentRenderer = _pathRenderer.get(); break;
-        case 1: _currentRenderer = _wfRenderer.get(); break;
-        default: _currentRenderer = _pathRenderer.get(); break;
-    }
-
+    _currentRenderer = _pathRenderer.get();
     if (!_currentRenderer->init(_width, _height, _gpu.get(), _scene.get())) {
         std::cerr << "Renderer init failed: " << _currentRenderer->name() << std::endl;
-    } else {
-        std::cout << "Active Renderer: " << _currentRenderer->name() << std::endl;
     }
 }
 
@@ -178,7 +164,6 @@ void Application::run() {
         float deltaTime = _window->deltaTime();
 
         handleInput(deltaTime);
-        update(deltaTime);
         render();
     }
 }
