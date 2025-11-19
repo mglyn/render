@@ -47,6 +47,7 @@ public:
 
 private:
     std::vector<Shape> shapes_;
+    std::vector<Shape> emissiveShapes_;
     std::vector<std::unique_ptr<Model>> models_;
     std::vector<ModelGPU> gpuModels_;
     bool bvhUploaded_ = false;

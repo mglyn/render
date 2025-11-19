@@ -94,7 +94,7 @@ void Application::createScene() {
     _scene->addShape(Shape::make_plane(glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 0.0f, 1.0f), Material{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
     // 添加光源
     _scene->addShape(Shape::make_sphere(glm::vec3(0.3f, 0.8f, 0.3f), 0.1f, 
-        Material{glm::vec3(0.0f), 0.0f, glm::vec3(1.0f, 1.0f, 0.9f) * 8.0f}));
+        Material{glm::vec3(0.0f), 0.0f, glm::vec3{1.0f, 1.0f, 0.9f} * 8.0f}));
 
     // 添加一个参考球体
     _scene->addShape(Shape::make_sphere(glm::vec3(-1.5f, 0.5f, 0.0f), 0.3f, 
@@ -153,7 +153,6 @@ void Application::render() {
 
     // 渲染 UI
     ui::renderUI(_nextMode, _window->fps(), _pathRenderer.get());
-    // ui::renderBVHDebugUI(_scene.get());
 
     ui::endFrame();
     _window->endFrame();

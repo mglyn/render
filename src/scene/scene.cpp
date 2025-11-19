@@ -12,6 +12,14 @@ Scene::~Scene() {
 
 void Scene::addShape(const Shape& shape) {
     shapes_.push_back(shape);
+    // 如果是发光体，额外记录到 emissiveShapes_
+    const Shape& s = shapes_.back();
+    if (s.type == SHAPE_SPHERE) {
+        const auto& m = s.data.sph.mat;
+        if (m.emission.r > 0.0f || m.emission.g > 0.0f || m.emission.b > 0.0f) {
+            emissiveShapes_.push_back(s);
+        }
+    }
     setDirty(); // 添加物体后设置脏标记
 }
 

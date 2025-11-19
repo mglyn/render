@@ -149,6 +149,110 @@ __device__ bool intersectBVH(const ModelGPU* models, int modelCount, const Ray& 
     return hitAnything;
 }
 
+// Shadow ray：只关心是否被任何物体遮挡（不需要返回具体 HitRecord）
+__device__ bool anyHit(
+    const Shape* shapes, int shapeCount,
+    const ModelGPU* models, int modelCount,
+    const Ray& r, float tMin, float tMax)
+{
+    // 1. 检查 BVH 模型是否有任意命中
+    for (int modelIdx = 0; modelIdx < modelCount; ++modelIdx) {
+        const ModelGPU& model = models[modelIdx];
+        if (model.nodeCount == 0 || !model.bvhNodes) continue;
+
+        int stack[64];
+        int stackPtr = 0;
+        stack[stackPtr++] = 0;
+
+        while (stackPtr > 0) {
+            int nodeIdx = stack[--stackPtr];
+            const BVHNodeGPU& node = model.bvhNodes[nodeIdx];
+
+            if (!intersectAABB(node.minBounds, node.maxBounds, r)) continue;
+
+            if (node.count > 0) {
+                for (int i = 0; i < node.count; ++i) {
+                    int idxInIndices = node.start + i;
+                    if (idxInIndices >= model.triangleCount) continue;
+                    int triIdx = model.triangleIndices ? model.triangleIndices[idxInIndices] : idxInIndices;
+                    if (triIdx >= model.triangleCount) continue;
+
+                    HitRecord tmp;
+                    if (intersectTriangle(model.triangles[triIdx], model.materials, r, tMin, tMax, tmp)) {
+                        return true;
+                    }
+                }
+            } else {
+                if (node.left >= 0 && stackPtr < 63) stack[stackPtr++] = node.left;
+                if (node.right >= 0 && stackPtr < 63) stack[stackPtr++] = node.right;
+            }
+        }
+    }
+
+    // 2. 检查基础 Shape（球、平面、三角形）是否有任意命中
+    for (int i = 0; i < shapeCount; ++i) {
+        const Shape& s = shapes[i];
+        HitRecord tmp;
+        bool hit = false;
+        switch (s.type) {
+            case SHAPE_SPHERE: {
+                glm::vec3 oc = r.origin() - s.data.sph.center;
+                float a = glm::dot(r.direction(), r.direction());
+                float halfB = glm::dot(oc, r.direction());
+                float c = glm::dot(oc, oc) - s.data.sph.radius * s.data.sph.radius;
+                float discriminant = halfB * halfB - a * c;
+                if (discriminant >= 0.0f) {
+                    float sqrtD = sqrtf(discriminant);
+                    float root = (-halfB - sqrtD) / a;
+                    if (root < tMin || root > tMax) {
+                        root = (-halfB + sqrtD) / a;
+                    }
+                    if (root >= tMin && root <= tMax) {
+                        hit = true;
+                    }
+                }
+            } break;
+            case SHAPE_TRIANGLE: {
+                const glm::vec3& v0 = s.data.tri.v0;
+                const glm::vec3& v1 = s.data.tri.v1;
+                const glm::vec3& v2 = s.data.tri.v2;
+                glm::vec3 edge1 = v1 - v0;
+                glm::vec3 edge2 = v2 - v0;
+                glm::vec3 pvec = glm::cross(r.direction(), edge2);
+                float det = glm::dot(edge1, pvec);
+                if (fabsf(det) > 1e-6f) {
+                    float invDet = 1.0f / det;
+                    glm::vec3 tvec = r.origin() - v0;
+                    float u = glm::dot(tvec, pvec) * invDet;
+                    if (u >= 0.0f && u <= 1.0f) {
+                        glm::vec3 qvec = glm::cross(tvec, edge1);
+                        float v = glm::dot(r.direction(), qvec) * invDet;
+                        if (v >= 0.0f && u + v <= 1.0f) {
+                            float t = glm::dot(edge2, qvec) * invDet;
+                            if (t >= tMin && t <= tMax) {
+                                hit = true;
+                            }
+                        }
+                    }
+                }
+            } break;
+            case SHAPE_PLANE: {
+                const glm::vec3& n = s.data.pln.normal;
+                float denom = glm::dot(n, r.direction());
+                if (fabsf(denom) > 1e-6f) {
+                    float t = glm::dot(s.data.pln.point - r.origin(), n) / denom;
+                    if (t >= tMin && t <= tMax) {
+                        hit = true;
+                    }
+                }
+            } break;
+        }
+        if (hit) return true;
+    }
+
+    return false;
+}
+
 __device__ bool intersect(
     const Shape* shapes, int shapeCount, const Ray& r, float tMin, float tMax, HitRecord& rec) {
     bool hitAnything = false;

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <cstdio>
 #include <cuda_runtime.h>
@@ -43,6 +44,11 @@ bool CudaPathTracingRenderer::uploadScene() {
             cudaFree(_shapesDev);
             _shapesDev = nullptr;
         }
+        if (_lightsDev) {
+            cudaFree(_lightsDev);
+            _lightsDev = nullptr;
+            _lightCount = 0;
+        }
         return true; // No scene to upload, but not an error
     }
 
@@ -51,8 +57,6 @@ bool CudaPathTracingRenderer::uploadScene() {
 
     // Free existing memory if shape count differs or buffer not allocated
     if (_shapesDev) {
-        // A more robust check would be to see if the scene content has actually changed.
-        // For now, we re-upload if the pointer is different, which happens on init.
         cudaFree(_shapesDev);
         _shapesDev = nullptr;
     }
@@ -72,6 +76,39 @@ bool CudaPathTracingRenderer::uploadScene() {
     }
 
     std::cout << "Uploaded " << _shapeCount << " shapes to GPU." << std::endl;
+
+    // 上传发光体列表（目前只支持球形光源）
+    std::vector<Shape> lightShapes;
+    lightShapes.reserve(_shapeCount);
+    for (const auto& s : hostShapes) {
+        if (s.type == SHAPE_SPHERE) {
+            const auto& m = s.data.sph.mat;
+            if (m.emission.r > 0.0f || m.emission.g > 0.0f || m.emission.b > 0.0f) {
+                lightShapes.push_back(s);
+            }
+        }
+    }
+    _lightCount = static_cast<int>(lightShapes.size());
+    if (_lightsDev) {
+        cudaFree(_lightsDev);
+        _lightsDev = nullptr;
+    }
+    if (_lightCount > 0) {
+        err = cudaMalloc(&_lightsDev, static_cast<size_t>(_lightCount) * sizeof(Shape));
+        if (err != cudaSuccess) {
+            std::cerr << "Failed to allocate device memory for lights: " << cudaGetErrorString(err) << std::endl;
+            return false;
+        }
+        err = cudaMemcpy(_lightsDev, lightShapes.data(), static_cast<size_t>(_lightCount) * sizeof(Shape), cudaMemcpyHostToDevice);
+        if (err != cudaSuccess) {
+            std::cerr << "Failed to copy lights to device: " << cudaGetErrorString(err) << std::endl;
+            cudaFree(_lightsDev);
+            _lightsDev = nullptr;
+            _lightCount = 0;
+            return false;
+        }
+        std::cout << "Uploaded " << _lightCount << " emissive shapes to GPU." << std::endl;
+    }
     return true;
 }
 
@@ -259,8 +296,22 @@ void CudaPathTracingRenderer::renderFrame(Camera &camera)
     {
         int kSamplesPerPixel = _spp;
         int kMaxDepth = _maxDepth;
+        bool enableDiffuseImportanceSampling = _enableDiffuseImportanceSampling;
+        LightingMode lightingMode = _lightingMode;
+        int effectiveMaxDepth = kMaxDepth;
+        if (lightingMode == LIGHTING_MODE_DIRECT) {
+            effectiveMaxDepth = std::min(kMaxDepth, 1);
+        } else if (lightingMode == LIGHTING_MODE_INDIRECT) {
+            effectiveMaxDepth = kMaxDepth;
+        }
         int nextAccum = _accumFrameCount + 1;
-        launchPathTracer(devPtr, _width, _height, camera, _shapesDev, _shapeCount, _modelsDev, _modelCount, kSamplesPerPixel, kMaxDepth, _accumBufferDev, nextAccum, _frame);
+        launchPathTracer(devPtr, _width, _height, camera,
+            _shapesDev, _shapeCount,
+            _lightsDev, _lightCount,
+            _modelsDev, _modelCount,
+            kSamplesPerPixel, effectiveMaxDepth,
+            lightingMode, enableDiffuseImportanceSampling,
+            _accumBufferDev, nextAccum, _frame);
         _gpu->unmapWrite();
         _gpu->finalizeWrite();
         _accumFrameCount++;
@@ -308,6 +359,11 @@ void CudaPathTracingRenderer::destroy()
     {
         cudaFree(_shapesDev);
         _shapesDev = nullptr;
+    }
+    if (_lightsDev) {
+        cudaFree(_lightsDev);
+        _lightsDev = nullptr;
+        _lightCount = 0;
     }
     if (_modelsDev) {
         cudaFree(_modelsDev);

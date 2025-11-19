@@ -46,6 +46,8 @@ static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
     if (ImGui::TreeNode("Path Tracing Settings")) {
         int spp = renderer->getSpp();
         int maxDepth = renderer->getMaxDepth();
+        bool enableDiffuseIS = renderer->getEnableDiffuseImportanceSampling();
+        int lightingMode = static_cast<int>(renderer->getLightingMode());
 
         ImGui::Text("Samples Per Pixel: %d", spp);
         ImGui::SameLine();
@@ -69,6 +71,15 @@ static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
         ImGui::SameLine();
         if (ImGui::SmallButton("+##depth")) {
             renderer->setMaxDepth(maxDepth + 1);
+        }
+
+        ImGui::Separator();
+        const char* lightingModeItems[] = { "Direct Only", "Indirect Only", "Full (MIS)" };
+        if (ImGui::Combo("Lighting Mode", &lightingMode, lightingModeItems, IM_ARRAYSIZE(lightingModeItems))) {
+            renderer->setLightingMode(static_cast<LightingMode>(lightingMode));
+        }
+        if (ImGui::Checkbox("Enable Diffuse Importance Sampling", &enableDiffuseIS)) {
+            renderer->setEnableDiffuseImportanceSampling(enableDiffuseIS);
         }
 
         ImGui::TreePop();

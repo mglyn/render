@@ -26,13 +26,90 @@ namespace {
         return (1.0f - t) * glm::vec3(0.3f, 0.3f, 0.3f) + t * glm::vec3(0.35f, 0.35f, 0.5);
     }
 
-    // Fresnel-Schlick近似，用于镜面概率混合
-    __device__ glm::vec3 fresnelSchlick_fn(float cosTheta, const glm::vec3 &F0) {
-        return F0 + (glm::vec3(1.0f) - F0) * powf(1.0f - cosTheta, 5.0f);
+    constexpr float kPi = 3.1415926535f;
+
+    __device__ float bsdfPdf(bool importanceSampling, float cosTheta)
+    {
+        if (importanceSampling) {
+            return cosTheta > 0.0f ? cosTheta / kPi : 0.0f;
+        }
+        return 1.0f / (2.0f * kPi);
+    }
+
+    // 向球形光源采样 + （可选）MIS 权重，返回对 radiance 的贡献
+    __device__ glm::vec3 sampleDirectLight(
+        const Shape* shapes, int shapeCount,
+        const ModelGPU* models, int modelCount,
+        const Shape* lights, int lightCount,
+        const HitRecord& rec,
+        uint32_t& seed,
+        const glm::vec3& baseWeight,
+        const glm::vec3& brdf,
+        LightingMode lightingMode,
+        bool enableDiffuseImportanceSampling)
+    {
+        if (lightCount == 0) return glm::vec3(0.0f);
+
+        int lightIdx = static_cast<int>(rand01(seed) * lightCount);
+        if (lightIdx >= lightCount) lightIdx = lightCount - 1;
+
+        const Shape* light = &lights[lightIdx];
+        if (!light) return glm::vec3(0.0f);
+
+        float u1 = rand01(seed);
+        float u2 = rand01(seed);
+        float z = 1.0f - 2.0f * u1;
+        float phi = 2.0f * kPi * u2;
+        float rxy = sqrtf(fmaxf(0.0f, 1.0f - z * z));
+        glm::vec3 onLight = light->data.sph.center + light->data.sph.radius * glm::vec3(rxy * cosf(phi), rxy * sinf(phi), z);
+        glm::vec3 toLight = onLight - rec.point;
+        float dist2 = glm::dot(toLight, toLight);
+        float dist = sqrtf(dist2);
+        if (dist <= 0.0f) return glm::vec3(0.0f);
+
+        glm::vec3 toLightDir = toLight / dist;
+        float cosTheta = glm::dot(rec.normal, toLightDir);
+        glm::vec3 lightNormal = (onLight - light->data.sph.center) / light->data.sph.radius;
+        float cosThetaL = glm::dot(lightNormal, -toLightDir);
+        if (cosTheta <= 0.0f || cosThetaL <= 0.0f) return glm::vec3(0.0f);
+
+        // Shadow ray 遮挡测试：对 BVH 模型 + 基础形状做早停求交
+        Ray shadowRay(rec.point + rec.normal * 0.001f, toLightDir);
+        if (anyHit(shapes, shapeCount, models, modelCount, shadowRay, 0.001f, dist - 0.001f)) {
+            return glm::vec3(0.0f);
+        }
+
+        float area = 4.0f * kPi * light->data.sph.radius * light->data.sph.radius;
+        float pdfArea = 1.0f / area;
+        float pdfLightDir = (dist2 / cosThetaL) * pdfArea * (1.0f / lightCount);
+        if (pdfLightDir <= 0.0f) return glm::vec3(0.0f);
+
+        float pdfBsdfLight = 0.0f;
+        if (lightingMode == LIGHTING_MODE_MIS) {
+            pdfBsdfLight = bsdfPdf(enableDiffuseImportanceSampling, cosTheta);
+        }
+
+        float weight = 1.0f;
+        if (lightingMode == LIGHTING_MODE_MIS) {
+            float pl = pdfLightDir;
+            float pb = pdfBsdfLight;
+            float pl2 = pl * pl;
+            float pb2 = pb * pb;
+            weight = pl2 / (pl2 + pb2 + 1e-8f);
+        }
+
+        glm::vec3 Le = light->data.sph.mat.emission;
+        glm::vec3 contrib = baseWeight * brdf * cosTheta;
+        return contrib * Le * weight / pdfLightDir;
     }
 
     // 路径追踪主循环：Fresnel概率混合采样，累积throughput
-    __device__ glm::vec3 traceRay(const Shape* shapes, int shapeCount, const ModelGPU* models, int modelCount, Ray r, uint32_t &seed, int maxDepth) {
+    __device__ glm::vec3 traceRay(const Shape* shapes, int shapeCount,
+                                  const Shape* lights, int lightCount,
+                                  const ModelGPU* models, int modelCount,
+                                  Ray r, uint32_t &seed, int maxDepth,
+                                  LightingMode lightingMode,
+                                  bool enableDiffuseImportanceSampling) {
         glm::vec3 radiance(0.0f);
         glm::vec3 throughput(1.0f);
         for (int depth = 0; depth < maxDepth; ++depth) {
@@ -70,86 +147,68 @@ namespace {
             // 自发光累加
             radiance += throughput * rec.emission;
 
-            // 基于金属度的简单混合（离散混合采样）。
+            glm::vec3 throughputPrev = throughput;
+
+            // 基于金属度的离散混合采样。
             // 为了保持无偏，需要对选择的采样策略按其选择概率进行重要性权重校正。
             float pSpec = rec.metallic;
             float pDiff = 1.0f - pSpec;
             float choice = rand01(seed);
             if (choice < pSpec) {
                 // 镜面反射分支（delta分布）。
+                if (lightingMode == LIGHTING_MODE_DIRECT) {
+                    break;
+                }
                 glm::vec3 refl = glm::reflect(glm::normalize(r.direction()), rec.normal);
+                throughput = throughputPrev;
                 // 将反射率按选择概率归一化，确保无偏（BRDF/p(selection)).
                 if (pSpec > 0.0f) throughput *= rec.albedo / pSpec;
                 r = Ray(rec.point + rec.normal * 0.001f, glm::normalize(refl));
             } else {
-                // 漫反射分支（余弦加权半球采样）。
-                glm::vec3 bounceDir = cosineSampleHemisphere(rec.normal, seed);
-                if (pDiff > 0.0f) throughput *= rec.albedo / pDiff;
-                r = Ray(rec.point + rec.normal * 0.001f, bounceDir);
+                // 漫反射分支：根据开关选择是否使用余弦加权半球重要性采样
+                if (pDiff <= 0.0f) {
+                    break;
+                }
 
-                // === 直接光照：向光源采样 + pdf修正 ===
-                // 只采样球体光源
-                int lightCount = 0;
-                for (int i = 0; i < shapeCount; ++i) {
-                    if (shapes[i].type == SHAPE_SPHERE &&
-                        (shapes[i].data.sph.mat.emission.r > 0.0f || shapes[i].data.sph.mat.emission.g > 0.0f || shapes[i].data.sph.mat.emission.b > 0.0f)) {
-                        ++lightCount;
+                bool allowDirect = (lightingMode != LIGHTING_MODE_INDIRECT);
+                bool allowIndirect = (lightingMode != LIGHTING_MODE_DIRECT);
+
+                float invPDiff = 1.0f / pDiff;
+                glm::vec3 baseWeight = throughputPrev * invPDiff;
+                glm::vec3 brdf = rec.albedo / kPi;
+
+                glm::vec3 bounceDir(0.0f);
+                float cosThetaBounce = 0.0f;
+                float pdfBsdfSample = 0.0f;
+                if (allowIndirect || lightingMode == LIGHTING_MODE_MIS) { // 间接光
+                    if (enableDiffuseImportanceSampling) {
+                        bounceDir = cosineSampleHemisphere(rec.normal, seed);
+                        cosThetaBounce = fmaxf(glm::dot(rec.normal, bounceDir), 0.0f);
+                    } else {
+                        bounceDir = uniformSampleHemisphere(rec.normal, seed);
+                        cosThetaBounce = fmaxf(glm::dot(rec.normal, bounceDir), 0.0f);
                     }
+                    pdfBsdfSample = bsdfPdf(enableDiffuseImportanceSampling, cosThetaBounce);
                 }
-                if (lightCount > 0) {
-                    int lightIdx = static_cast<int>(rand01(seed) * lightCount);
-                    int found = 0;
-                    const Shape* light = nullptr;
-                    for (int i = 0; i < shapeCount; ++i) {
-                        if (shapes[i].type == SHAPE_SPHERE &&
-                            (shapes[i].data.sph.mat.emission.r > 0.0f || shapes[i].data.sph.mat.emission.g > 0.0f || shapes[i].data.sph.mat.emission.b > 0.0f)) {
-                            if (found == lightIdx) {
-                                light = &shapes[i];
-                                break;
-                            }
-                            ++found;
-                        }
-                    }
-                    if (light) {
-                        // 球面均匀采样
-                        float u1 = rand01(seed);
-                        float u2 = rand01(seed);
-                        float z = 1.0f - 2.0f * u1;
-                        float phi = 2.0f * 3.1415926535f * u2;
-                        float rxy = sqrtf(1.0f - z * z);
-                        glm::vec3 onLight = light->data.sph.center + light->data.sph.radius * glm::vec3(rxy * cosf(phi), rxy * sinf(phi), z);
-                        glm::vec3 toLight = onLight - rec.point;
-                        float dist2 = glm::dot(toLight, toLight);
-                        float dist = sqrtf(dist2);
-                        glm::vec3 toLightDir = toLight / dist;
-                        // 检查可见性（shadow ray）
-                        Ray shadowRay(rec.point + rec.normal * 0.001f, toLightDir);
-                        bool occluded = false;
-                        for (int i = 0; i < shapeCount; ++i) {
-                            if (&shapes[i] == light) continue;
-                            HitRecord tmpRec;
-                            if (intersect(&shapes[i], 1, shadowRay, 0.001f, dist - 0.001f, tmpRec)) {
-                                occluded = true;
-                                break;
-                            }
-                        }
-                        if (!occluded) {
-                            // pdf = 1 / (4 * pi * r^2) * 1 / lightCount
-                            float lightArea = 4.0f * 3.1415926535f * light->data.sph.radius * light->data.sph.radius;
-                            float pdf = (1.0f / lightArea) * (1.0f / lightCount);
-                            float cosTheta = glm::dot(-toLightDir, rec.normal);
-                            float cosThetaL = glm::dot(toLightDir, (onLight - light->data.sph.center) / light->data.sph.radius);
-                            if (cosTheta > 0.0f && cosThetaL > 0.0f) {
-                                // 距离平方衰减和法线夹角修正
-                                float G = cosTheta * cosThetaL / dist2;
-                                glm::vec3 Le = light->data.sph.mat.emission;
-                                // Lambert BRDF = albedo / pi
-                                glm::vec3 brdf = rec.albedo / 3.1415926535f;
-                                radiance += throughput * Le * brdf * G / pdf;
-                            }
-                        }
-                    }
+
+                if (allowDirect) { // 向光源采样
+                    glm::vec3 direct = sampleDirectLight(
+                        shapes, shapeCount,
+                        models, modelCount,
+                        lights, lightCount,
+                        rec, seed,
+                        baseWeight, brdf,
+                        lightingMode,
+                        enableDiffuseImportanceSampling);
+                    radiance += direct;
                 }
+
+                if (!allowIndirect) {
+                    break;
+                }
+
+                throughput = throughputPrev * rec.albedo * invPDiff;
+                r = Ray(rec.point + rec.normal * 0.001f, bounceDir);
             }
             // 俄罗斯轮盘赌：当 throughput 很小时随机终止以减少无用的追踪路径。
             // 使用亮度作为衡量（L1或L2均可），并保证在继续时对 throughput 进行重要性权重校正以保持无偏。
@@ -171,8 +230,10 @@ namespace {
     // CUDA核函数：每像素采样多次，累积结果
     __global__ void pathTraceKernel(
         const Shape* shapes, int shapeCount,
+        const Shape* lights, int lightCount,
         const ModelGPU* models, int modelCount,
         unsigned int *pbo, int width, int height, int samplesPerPixel, int maxDepth,
+        LightingMode lightingMode, bool enableDiffuseImportanceSampling,
         glm::vec3 camPos, glm::vec3 lowerLeft, glm::vec3 horizontal, glm::vec3 vertical,
         glm::vec3 *accumBuffer, int accumFrameCount, int frameIndex) {
         int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -186,8 +247,10 @@ namespace {
             float v = (y + rand01(seed)) / static_cast<float>(height - 1); // 垂直归一化坐标 + 随机抖动
             glm::vec3 dir = lowerLeft + u * horizontal + v * vertical - camPos; // 计算该随机子像素对应的射线方向（相机透视投射）
             Ray r(camPos, glm::normalize(dir)); // 构造从相机位置出发的单位方向射线
-            
-            color += traceRay(shapes, shapeCount, models, modelCount, r, seed, maxDepth); // 路径追踪
+
+            color += traceRay(shapes, shapeCount, lights, lightCount, models, modelCount,
+                              r, seed, maxDepth,
+                              lightingMode, enableDiffuseImportanceSampling); // 路径追踪
         }
         color /= static_cast<float>(samplesPerPixel); // 将累积的总和除以采样数目得到平均颜色
         color = glm::clamp(color, glm::vec3(0.0f), glm::vec3(1.0f)); // 保证数值在显示合法范围内，避免溢出
@@ -211,9 +274,12 @@ namespace {
 } // namespace
 
 extern "C" void launchPathTracer(unsigned int *pbo, int width, int height, const Camera &camera, 
-    const Shape* shapes, int shapeCount, 
+    const Shape* shapes, int shapeCount,
+    const Shape* lights, int lightCount,
     const ModelGPU* models, int modelCount,
-    int samplesPerPixel, int maxDepth, glm::vec3 *accumBuffer, int accumFrameCount, int frameIndex) {
+    int samplesPerPixel, int maxDepth,
+    LightingMode lightingMode, bool enableDiffuseImportanceSampling,
+    glm::vec3 *accumBuffer, int accumFrameCount, int frameIndex) {
     float aspect = static_cast<float>(width) / static_cast<float>(height);
     float fovRad = camera.getFov() * 0.0174532925f;
     float viewportHeight = 2.0f * tanf(fovRad * 0.5f);
@@ -227,6 +293,9 @@ extern "C" void launchPathTracer(unsigned int *pbo, int width, int height, const
     glm::vec3 lowerLeft = camPos + front - horizontal * 0.5f - vertical * 0.5f;
     dim3 block(16, 16);
     dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
-    pathTraceKernel<<<grid, block>>>(shapes, shapeCount, models, modelCount, pbo, width, height, samplesPerPixel, maxDepth, camPos, lowerLeft, horizontal, vertical, accumBuffer, accumFrameCount, frameIndex);
-    cudaDeviceSynchronize();
+    pathTraceKernel<<<grid, block>>>(shapes, shapeCount, lights, lightCount, models, modelCount,
+        pbo, width, height, samplesPerPixel, maxDepth,
+        lightingMode, enableDiffuseImportanceSampling,
+        camPos, lowerLeft, horizontal, vertical,
+        accumBuffer, accumFrameCount, frameIndex);
 }

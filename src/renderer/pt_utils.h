@@ -25,3 +25,19 @@ __device__ inline glm::vec3 cosineSampleHemisphere(const glm::vec3& normal, uint
     glm::vec3 sample = x * tangent + y * bitangent + z * normal;
     return glm::normalize(sample);
 }
+
+// 均匀半球采样（用于关闭重要性采样时对比）
+__device__ inline glm::vec3 uniformSampleHemisphere(const glm::vec3& normal, uint32_t& seed) {
+    float u1 = rand01(seed);
+    float u2 = rand01(seed);
+    float z = u1; // [0,1]
+    float r = sqrtf(fmaxf(0.0f, 1.0f - z * z));
+    float phi = 2.0f * 3.1415926535f * u2;
+    float x = r * cosf(phi);
+    float y = r * sinf(phi);
+
+    glm::vec3 tangent = glm::normalize(glm::abs(normal.x) > 0.1f ? glm::cross(normal, glm::vec3(0.0f, 1.0f, 0.0f)) : glm::cross(normal, glm::vec3(1.0f, 0.0f, 0.0f)));
+    glm::vec3 bitangent = glm::cross(normal, tangent);
+    glm::vec3 sample = x * tangent + y * bitangent + z * normal;
+    return glm::normalize(sample);
+}
