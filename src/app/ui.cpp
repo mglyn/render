@@ -47,7 +47,6 @@ static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
         int spp = renderer->getSpp();
         int maxDepth = renderer->getMaxDepth();
         bool enableDiffuseIS = renderer->getEnableDiffuseImportanceSampling();
-        int lightingMode = static_cast<int>(renderer->getLightingMode());
 
         ImGui::Text("Samples Per Pixel: %d", spp);
         ImGui::SameLine();
@@ -74,10 +73,6 @@ static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
         }
 
         ImGui::Separator();
-        const char* lightingModeItems[] = { "Direct Only", "Indirect Only", "Full (MIS)" };
-        if (ImGui::Combo("Lighting Mode", &lightingMode, lightingModeItems, IM_ARRAYSIZE(lightingModeItems))) {
-            renderer->setLightingMode(static_cast<LightingMode>(lightingMode));
-        }
         if (ImGui::Checkbox("Enable Diffuse Importance Sampling", &enableDiffuseIS)) {
             renderer->setEnableDiffuseImportanceSampling(enableDiffuseIS);
         }
@@ -91,7 +86,6 @@ static void renderControlsSubmenu() {
         ImGui::BulletText("W/A/S/D - Move camera");
         ImGui::BulletText("Arrow Keys - Rotate view");
         ImGui::BulletText("Space/Shift - Up/Down");
-        ImGui::BulletText("T - Add random sphere");
         ImGui::BulletText("ESC - Exit");
         ImGui::TreePop();
     }

@@ -7,14 +7,8 @@
 #include "renderer/hitRecord.h"
 #include "struct/modelGpu.h"
 
-// 遍历 Shape 数组求交，返回最近命中
-__device__ bool intersect(
-    const Shape* shapes, int shapeCount, const Ray& r, float tMin, float tMax, HitRecord& rec);
-
 // Shadow ray 求交：检测在 [tMin, tMax] 区间内是否被任意物体遮挡（BVH 模型 + 基础 Shape）
-__device__ bool anyHit(
-    const Shape* shapes, int shapeCount,
-    const ModelGPU* models, int modelCount,
+__device__ bool anyHit(const ModelGPU* models, int modelCount,
     const Ray& r, float tMin, float tMax);
 
 // BVH加速求交

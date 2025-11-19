@@ -2,27 +2,6 @@
 #include <iostream>
 #include <cuda_runtime.h>
 
-Scene::Scene() {
-    // 构造函数，脏标记默认为true
-}
-
-Scene::~Scene() {
-    // 析构函数，目前为空
-}
-
-void Scene::addShape(const Shape& shape) {
-    shapes_.push_back(shape);
-    // 如果是发光体，额外记录到 emissiveShapes_
-    const Shape& s = shapes_.back();
-    if (s.type == SHAPE_SPHERE) {
-        const auto& m = s.data.sph.mat;
-        if (m.emission.r > 0.0f || m.emission.g > 0.0f || m.emission.b > 0.0f) {
-            emissiveShapes_.push_back(s);
-        }
-    }
-    setDirty(); // 添加物体后设置脏标记
-}
-
 // 新的 addModel 实现
 void Scene::addModel(std::unique_ptr<Model> model, const glm::vec3 &pos, const glm::vec3 &rotation, const glm::vec3 &scale) {
     if (!model || model->empty()) {
@@ -48,7 +27,7 @@ std::unique_ptr<Model> Scene::createModelFromObj(const std::string &path, const 
     return model;
 }
 
-bool Scene::uploadBVHToGPU() {
+bool Scene::uploadModelsToGPU() {
     // 1. 创建一个临时的 ModelGPU 向量
     std::vector<ModelGPU> newGpuModels;
 
@@ -59,7 +38,7 @@ bool Scene::uploadBVHToGPU() {
         const auto& bvh = model->bvh();
         
         // 应用模型变换到三角形
-        std::vector<TrianglePOD> worldTriangles = model->triangles();
+        std::vector<Triangle> worldTriangles = model->triangles();
         const glm::mat4& modelMatrix = model->getModelMatrix();
         for (auto& tri : worldTriangles) {
             tri.v0 = glm::vec3(modelMatrix * glm::vec4(tri.v0, 1.0f));
@@ -104,8 +83,6 @@ bool Scene::uploadBVHToGPU() {
             for (int i = 0; i < gpuModel.materialCount; ++i) {
                 gpuMats[i].albedo = hostMaterials[i].albedo;
                 gpuMats[i].metallic = hostMaterials[i].metallic;
-                gpuMats[i].emission = hostMaterials[i].emission;
-                gpuMats[i].pad = 0.0f;
             }
 
             cudaError_t err = cudaMalloc(&gpuModel.materials, gpuModel.materialCount * sizeof(MaterialGPU));
@@ -135,12 +112,12 @@ bool Scene::uploadBVHToGPU() {
             err = cudaMemcpy(gpuModel.triangles, gpuTriangles.data(), gpuModel.triangleCount * sizeof(TriangleGPU), cudaMemcpyHostToDevice);
             if (err != cudaSuccess) { /* 错误处理 */ return false; }
         }
-        
+
         newGpuModels.push_back(gpuModel);
     }
     
     // 2. 释放旧的 GPU 资源
-    freeBVHGPU();
+    freeModelsGPU();
 
     // 3. 用新的数据交换旧的向量，这是一个原子操作
     gpuModels_.swap(newGpuModels);
@@ -149,7 +126,7 @@ bool Scene::uploadBVHToGPU() {
     return true;
 }
 
-void Scene::freeBVHGPU() {
+void Scene::freeModelsGPU() {
     for (auto& gpuModel : gpuModels_) {
         if (gpuModel.bvhNodes) cudaFree(gpuModel.bvhNodes);
         if (gpuModel.triangleIndices) cudaFree(gpuModel.triangleIndices);
@@ -159,3 +136,9 @@ void Scene::freeBVHGPU() {
     gpuModels_.clear(); // 在这里清空是安全的，因为它持有的是旧数据
     bvhUploaded_ = false;
 }
+
+Scene::~Scene() {
+    freeModelsGPU();
+}
+
+Scene::Scene() {}

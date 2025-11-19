@@ -15,7 +15,7 @@ struct AABB {
         min = glm::min(min, p);
         max = glm::max(max, p);
     }
-    void expandTri(const TrianglePOD &t) {
+    void expandTri(const Triangle &t) {
         expand(t.v0); expand(t.v1); expand(t.v2);
     }
     glm::vec3 centroid() const { return 0.5f * (min + max); }
@@ -30,7 +30,7 @@ struct AABB {
     }
     
     // 计算三角形重心（用于SAH划分）
-    glm::vec3 getTriangleCentroid(const TrianglePOD &t) const {
+    glm::vec3 getTriangleCentroid(const Triangle &t) const {
         return (t.v0 + t.v1 + t.v2) / 3.0f;
     }
 };
@@ -69,5 +69,5 @@ struct BVHNode {
 };
 
 namespace bvh {
-    void build(std::vector<BVHNode>& bvh, const std::vector<TrianglePOD>& triangles, std::vector<int>& triIndices, int maxLeafSize);
+    void build(std::vector<BVHNode>& bvh, const std::vector<Triangle>& triangles, std::vector<int>& triIndices, int maxLeafSize);
 }

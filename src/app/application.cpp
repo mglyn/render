@@ -75,52 +75,11 @@ void Application::createScene() {
         std::cout << "Successfully loaded and added simple_dragon.obj" << std::endl;
     } else {
         std::cerr << "Failed to load simple_dragon.obj" << std::endl;
-        // 如果加载失败，添加一个测试球体
-        _scene->addShape(Shape::make_sphere(glm::vec3(0.0f, 0.0f, 0.0f), 0.5f, 
-            Material{glm::vec3(0.7f, 0.7f, 0.9f), 0.1f}));
     }
-
-    // 地面
-    _scene->addShape(Shape::make_plane(glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 
-        Material{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
-    // 天花板
-    _scene->addShape(Shape::make_plane(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), 
-        Material{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
-    // 红色左墙
-    _scene->addShape(Shape::make_plane(glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), Material{glm::vec3(0.8f, 0.1f, 0.1f), 0.0f}));
-    // 绿色右墙，位于 x = +1，朝向 -x
-    _scene->addShape(Shape::make_plane(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), Material{glm::vec3(0.1f, 0.8f, 0.1f), 0.0f}));
-    // 背景墙 位于 z = -1，朝向 +z
-    _scene->addShape(Shape::make_plane(glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 0.0f, 1.0f), Material{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
-    // 添加光源
-    _scene->addShape(Shape::make_sphere(glm::vec3(0.3f, 0.8f, 0.3f), 0.1f, 
-        Material{glm::vec3(0.0f), 0.0f, glm::vec3{1.0f, 1.0f, 0.9f} * 8.0f}));
-
-    // 添加一个参考球体
-    _scene->addShape(Shape::make_sphere(glm::vec3(-1.5f, 0.5f, 0.0f), 0.3f, 
-        Material{glm::vec3(0.9f, 0.2f, 0.2f), 0.0f}));
 }
 
 void Application::handleInput(float deltaTime) {
     _window->pollEvents();
-
-    // 按 'T' 键添加随机球体
-    if (_window->isKeyJustPressed(GLFW_KEY_T)) {
-        float r = static_cast<float>(rand()) / RAND_MAX * 0.2f + 0.1f;
-        glm::vec3 pos(
-            (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f,
-            (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 1.0f,
-            (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f
-        );
-        glm::vec3 albedo(
-            static_cast<float>(rand()) / RAND_MAX,
-            static_cast<float>(rand()) / RAND_MAX,
-            static_cast<float>(rand()) / RAND_MAX
-        );
-        float metallic = static_cast<float>(rand()) / RAND_MAX;
-        _scene->addShape(Shape::make_sphere(pos, r, Material{albedo, metallic}));
-        std::cout << "Added a new sphere. Total shapes: " << _scene->getShapes().size() << std::endl;
-    }
 
     // 相机旋转输入
     bool rotLeft = _window->isKeyDown(GLFW_KEY_LEFT);

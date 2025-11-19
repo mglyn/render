@@ -16,14 +16,8 @@ Model::Model(Material mat) : defaultMaterial_(mat) {
     updateModelMatrix();
 }
 
-static TrianglePOD makeTri(const glm::vec3 &a, const glm::vec3 &b, const glm::vec3 &c, const Material &m)
-{
-    TrianglePOD t{};
-    t.v0 = a;
-    t.v1 = b;
-    t.v2 = c;
-    t.mat = m;
-    return t;
+static Triangle makeTri(const glm::vec3 &a, const glm::vec3 &b, const glm::vec3 &c, const Material &m){
+    return {a, b, c, m};
 }
 
 bool Model::loadObj(const std::string &path, const Material &mat)
@@ -127,9 +121,8 @@ bool Model::loadObj(const std::string &path, const Material &mat)
     return true;
 }
 
-void Model::buildBVH(int maxLeafSize)
-{
-    std::vector<TrianglePOD> worldTriangles = triangles_;
+void Model::buildBVH(int maxLeafSize){
+    std::vector<Triangle> worldTriangles = triangles_;
     for (auto& tri : worldTriangles) {
         tri.v0 = glm::vec3(modelMatrix_ * glm::vec4(tri.v0, 1.0f));
         tri.v1 = glm::vec3(modelMatrix_ * glm::vec4(tri.v1, 1.0f));

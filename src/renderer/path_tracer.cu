@@ -28,90 +28,23 @@ namespace {
 
     constexpr float kPi = 3.1415926535f;
 
-    __device__ float bsdfPdf(bool importanceSampling, float cosTheta)
-    {
+    __device__ float bsdfPdf(bool importanceSampling, float cosTheta){
         if (importanceSampling) {
             return cosTheta > 0.0f ? cosTheta / kPi : 0.0f;
         }
         return 1.0f / (2.0f * kPi);
     }
 
-    // 向球形光源采样 + （可选）MIS 权重，返回对 radiance 的贡献
-    __device__ glm::vec3 sampleDirectLight(
-        const Shape* shapes, int shapeCount,
-        const ModelGPU* models, int modelCount,
-        const Shape* lights, int lightCount,
-        const HitRecord& rec,
-        uint32_t& seed,
-        const glm::vec3& baseWeight,
-        const glm::vec3& brdf,
-        LightingMode lightingMode,
-        bool enableDiffuseImportanceSampling)
-    {
-        if (lightCount == 0) return glm::vec3(0.0f);
-
-        int lightIdx = static_cast<int>(rand01(seed) * lightCount);
-        if (lightIdx >= lightCount) lightIdx = lightCount - 1;
-
-        const Shape* light = &lights[lightIdx];
-        if (!light) return glm::vec3(0.0f);
-
-        float u1 = rand01(seed);
-        float u2 = rand01(seed);
-        float z = 1.0f - 2.0f * u1;
-        float phi = 2.0f * kPi * u2;
-        float rxy = sqrtf(fmaxf(0.0f, 1.0f - z * z));
-        glm::vec3 onLight = light->data.sph.center + light->data.sph.radius * glm::vec3(rxy * cosf(phi), rxy * sinf(phi), z);
-        glm::vec3 toLight = onLight - rec.point;
-        float dist2 = glm::dot(toLight, toLight);
-        float dist = sqrtf(dist2);
-        if (dist <= 0.0f) return glm::vec3(0.0f);
-
-        glm::vec3 toLightDir = toLight / dist;
-        float cosTheta = glm::dot(rec.normal, toLightDir);
-        glm::vec3 lightNormal = (onLight - light->data.sph.center) / light->data.sph.radius;
-        float cosThetaL = glm::dot(lightNormal, -toLightDir);
-        if (cosTheta <= 0.0f || cosThetaL <= 0.0f) return glm::vec3(0.0f);
-
-        // Shadow ray 遮挡测试：对 BVH 模型 + 基础形状做早停求交
-        Ray shadowRay(rec.point + rec.normal * 0.001f, toLightDir);
-        if (anyHit(shapes, shapeCount, models, modelCount, shadowRay, 0.001f, dist - 0.001f)) {
-            return glm::vec3(0.0f);
-        }
-
-        float area = 4.0f * kPi * light->data.sph.radius * light->data.sph.radius;
-        float pdfArea = 1.0f / area;
-        float pdfLightDir = (dist2 / cosThetaL) * pdfArea * (1.0f / lightCount);
-        if (pdfLightDir <= 0.0f) return glm::vec3(0.0f);
-
-        float pdfBsdfLight = 0.0f;
-        if (lightingMode == LIGHTING_MODE_MIS) {
-            pdfBsdfLight = bsdfPdf(enableDiffuseImportanceSampling, cosTheta);
-        }
-
-        float weight = 1.0f;
-        if (lightingMode == LIGHTING_MODE_MIS) {
-            float pl = pdfLightDir;
-            float pb = pdfBsdfLight;
-            float pl2 = pl * pl;
-            float pb2 = pb * pb;
-            weight = pl2 / (pl2 + pb2 + 1e-8f);
-        }
-
-        glm::vec3 Le = light->data.sph.mat.emission;
-        glm::vec3 contrib = baseWeight * brdf * cosTheta;
-        return contrib * Le * weight / pdfLightDir;
-    }
-
     // 路径追踪主循环：Fresnel概率混合采样，累积throughput
-    __device__ glm::vec3 traceRay(const Shape* shapes, int shapeCount,
-                                  const Shape* lights, int lightCount,
-                                  const ModelGPU* models, int modelCount,
+    __device__ glm::vec3 traceRay(const ModelGPU* models, int modelCount,
+                                  const IlluminantGPU* illuminants, int illuminantCount,
                                   Ray r, uint32_t &seed, int maxDepth,
                                   LightingMode lightingMode,
-                                  bool enableDiffuseImportanceSampling) {
+                                  bool enableDiffuseImportanceSampling) 
+    {
         glm::vec3 radiance(0.0f);
         glm::vec3 throughput(1.0f);
+
         for (int depth = 0; depth < maxDepth; ++depth) {
             // 统一求交：同时检查BVH和基础形状，选择最近命中
             HitRecord rec;
@@ -125,16 +58,6 @@ namespace {
                     hit = true;
                     closest = bvhRec.t;
                     rec = bvhRec;
-                }
-            }
-            
-            // 检查基础形状（球体、平面等）
-            if (shapeCount > 0 && shapes) {
-                HitRecord shapeRec;
-                if (intersect(shapes, shapeCount, r, 0.001f, closest, shapeRec)) {
-                    hit = true;
-                    closest = shapeRec.t;
-                    rec = shapeRec;
                 }
             }
             
@@ -191,16 +114,8 @@ namespace {
                     pdfBsdfSample = bsdfPdf(enableDiffuseImportanceSampling, cosThetaBounce);
                 }
 
-                if (allowDirect) { // 向光源采样
-                    glm::vec3 direct = sampleDirectLight(
-                        shapes, shapeCount,
-                        models, modelCount,
-                        lights, lightCount,
-                        rec, seed,
-                        baseWeight, brdf,
-                        lightingMode,
-                        enableDiffuseImportanceSampling);
-                    radiance += direct;
+                if (allowDirect) { 
+                    // 向光源采样
                 }
 
                 if (!allowIndirect) {
@@ -229,16 +144,16 @@ namespace {
 
     // CUDA核函数：每像素采样多次，累积结果
     __global__ void pathTraceKernel(
-        const Shape* shapes, int shapeCount,
-        const Shape* lights, int lightCount,
         const ModelGPU* models, int modelCount,
+        const IlluminantGPU* illuminants, int illuminantCount,
         unsigned int *pbo, int width, int height, int samplesPerPixel, int maxDepth,
         LightingMode lightingMode, bool enableDiffuseImportanceSampling,
         glm::vec3 camPos, glm::vec3 lowerLeft, glm::vec3 horizontal, glm::vec3 vertical,
-        glm::vec3 *accumBuffer, int accumFrameCount, int frameIndex) {
+        glm::vec3 *accumBuffer, int accumFrameCount, int frameIndex) 
+    {
         int x = blockIdx.x * blockDim.x + threadIdx.x;
         int y = blockIdx.y * blockDim.y + threadIdx.y;
-        if (x >= width || y >= height) return;
+        if (x >= width || y >= height) return;  
 
         uint32_t seed = (frameIndex + 1) * 9781u + x * 6271u + y * 1259u; 
         glm::vec3 color(0.0f); // 累积当前像素所有样本的线性颜色（未平均前）
@@ -248,7 +163,8 @@ namespace {
             glm::vec3 dir = lowerLeft + u * horizontal + v * vertical - camPos; // 计算该随机子像素对应的射线方向（相机透视投射）
             Ray r(camPos, glm::normalize(dir)); // 构造从相机位置出发的单位方向射线
 
-            color += traceRay(shapes, shapeCount, lights, lightCount, models, modelCount,
+            color += traceRay(models, modelCount,
+                              illuminants, illuminantCount,
                               r, seed, maxDepth,
                               lightingMode, enableDiffuseImportanceSampling); // 路径追踪
         }
@@ -273,13 +189,14 @@ namespace {
     }
 } // namespace
 
-extern "C" void launchPathTracer(unsigned int *pbo, int width, int height, const Camera &camera, 
-    const Shape* shapes, int shapeCount,
-    const Shape* lights, int lightCount,
+extern "C" void launchPathTracer(
+    unsigned int *pbo, int width, int height, const Camera &camera, 
     const ModelGPU* models, int modelCount,
+    const IlluminantGPU* illuminants, int illuminantCount,
     int samplesPerPixel, int maxDepth,
     LightingMode lightingMode, bool enableDiffuseImportanceSampling,
-    glm::vec3 *accumBuffer, int accumFrameCount, int frameIndex) {
+    glm::vec3 *accumBuffer, int accumFrameCount, int frameIndex) 
+{
     float aspect = static_cast<float>(width) / static_cast<float>(height);
     float fovRad = camera.getFov() * 0.0174532925f;
     float viewportHeight = 2.0f * tanf(fovRad * 0.5f);
@@ -293,9 +210,10 @@ extern "C" void launchPathTracer(unsigned int *pbo, int width, int height, const
     glm::vec3 lowerLeft = camPos + front - horizontal * 0.5f - vertical * 0.5f;
     dim3 block(16, 16);
     dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
-    pathTraceKernel<<<grid, block>>>(shapes, shapeCount, lights, lightCount, models, modelCount,
-        pbo, width, height, samplesPerPixel, maxDepth,
-        lightingMode, enableDiffuseImportanceSampling,
-        camPos, lowerLeft, horizontal, vertical,
-        accumBuffer, accumFrameCount, frameIndex);
+    pathTraceKernel<<<grid, block>>>(models, modelCount,
+                                     illuminants, illuminantCount,
+                                     pbo, width, height, samplesPerPixel, maxDepth,
+                                     lightingMode, enableDiffuseImportanceSampling,
+                                     camPos, lowerLeft, horizontal, vertical,
+                                     accumBuffer, accumFrameCount, frameIndex);
 }

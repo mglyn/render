@@ -37,87 +37,12 @@ GLuint CudaPathTracingRenderer::compileShader(GLenum type, const char *src)
     return s;
 }
 
-bool CudaPathTracingRenderer::uploadScene() {
-    if (!scene_ || scene_->getShapes().empty()) {
-        _shapeCount = 0;
-        if (_shapesDev) {
-            cudaFree(_shapesDev);
-            _shapesDev = nullptr;
-        }
-        if (_lightsDev) {
-            cudaFree(_lightsDev);
-            _lightsDev = nullptr;
-            _lightCount = 0;
-        }
-        return true; // No scene to upload, but not an error
-    }
-
-    const auto hostShapes = scene_->getShapes();
-    _shapeCount = static_cast<int>(hostShapes.size());
-
-    // Free existing memory if shape count differs or buffer not allocated
-    if (_shapesDev) {
-        cudaFree(_shapesDev);
-        _shapesDev = nullptr;
-    }
-
-    cudaError_t err = cudaMalloc(&_shapesDev, _shapeCount * sizeof(Shape));
-    if (err != cudaSuccess) {
-        std::cerr << "Failed to allocate device memory for shapes: " << cudaGetErrorString(err) << std::endl;
-        return false;
-    }
-
-    err = cudaMemcpy(_shapesDev, hostShapes.data(), static_cast<size_t>(_shapeCount) * sizeof(Shape), cudaMemcpyHostToDevice);
-    if (err != cudaSuccess) {
-        std::cerr << "Failed to copy shapes to device: " << cudaGetErrorString(err) << std::endl;
-        cudaFree(_shapesDev);
-        _shapesDev = nullptr;
-        return false;
-    }
-
-    std::cout << "Uploaded " << _shapeCount << " shapes to GPU." << std::endl;
-
-    // 上传发光体列表（目前只支持球形光源）
-    std::vector<Shape> lightShapes;
-    lightShapes.reserve(_shapeCount);
-    for (const auto& s : hostShapes) {
-        if (s.type == SHAPE_SPHERE) {
-            const auto& m = s.data.sph.mat;
-            if (m.emission.r > 0.0f || m.emission.g > 0.0f || m.emission.b > 0.0f) {
-                lightShapes.push_back(s);
-            }
-        }
-    }
-    _lightCount = static_cast<int>(lightShapes.size());
-    if (_lightsDev) {
-        cudaFree(_lightsDev);
-        _lightsDev = nullptr;
-    }
-    if (_lightCount > 0) {
-        err = cudaMalloc(&_lightsDev, static_cast<size_t>(_lightCount) * sizeof(Shape));
-        if (err != cudaSuccess) {
-            std::cerr << "Failed to allocate device memory for lights: " << cudaGetErrorString(err) << std::endl;
-            return false;
-        }
-        err = cudaMemcpy(_lightsDev, lightShapes.data(), static_cast<size_t>(_lightCount) * sizeof(Shape), cudaMemcpyHostToDevice);
-        if (err != cudaSuccess) {
-            std::cerr << "Failed to copy lights to device: " << cudaGetErrorString(err) << std::endl;
-            cudaFree(_lightsDev);
-            _lightsDev = nullptr;
-            _lightCount = 0;
-            return false;
-        }
-        std::cout << "Uploaded " << _lightCount << " emissive shapes to GPU." << std::endl;
-    }
-    return true;
-}
-
-bool CudaPathTracingRenderer::uploadBVH() {
+bool CudaPathTracingRenderer::uploadModels() {
     if (!scene_) return false;
     
-    // 上传BVH数据到GPU
-    if (!scene_->uploadBVHToGPU()) {
-        std::cerr << "Failed to upload BVH to GPU" << std::endl;
+    // 上传模型数据到GPU
+    if (!scene_->uploadModelsToGPU()) {
+        std::cerr << "Failed to upload models to GPU" << std::endl;
         return false;
     }
     
@@ -138,7 +63,7 @@ bool CudaPathTracingRenderer::uploadBVH() {
             return false;
         }
         
-        std::cout << "Uploaded BVH data for " << _modelCount << " models to GPU." << std::endl;
+        std::cout << "Uploaded " << _modelCount << " models to GPU." << std::endl;
     }
     
     return true;
@@ -157,11 +82,7 @@ bool CudaPathTracingRenderer::init(int width, int height, GPUResources *gpu, Sce
         return false;
     if (!allocateAccumBuffer())
         return false;
-    if (!uploadScene()) // Upload scene data to GPU
-        return false;
-    
-    // 上传BVH模型数据
-    if (!uploadBVH())
+    if (!uploadModels()) // Upload model data to GPU
         return false;
     
     // 清除脏标记，避免在第一次renderFrame时重复上传
@@ -254,38 +175,16 @@ void CudaPathTracingRenderer::resetAccumulation()
     _frame = 0;
 }
 
-bool CudaPathTracingRenderer::cameraChanged(const Camera &camera) const
-{
-    if (!_hasPrevCamState)
-        return true;
-    float posDiff = glm::length(camera.getPosition() - _prevCamPos);
-    float frontDiff = glm::length(camera.getFront() - _prevCamFront);
-    float upDiff = glm::length(camera.getUp() - _prevCamUp);
-    float fovDiff = fabsf(camera.getFov() - _prevFov);
-    const float eps = 1e-4f;
-    return posDiff > eps || frontDiff > eps || upDiff > eps || fovDiff > 1e-4f;
-}
-void CudaPathTracingRenderer::updateCameraState(const Camera &camera)
-{
-    _prevCamPos = camera.getPosition();
-    _prevCamFront = camera.getFront();
-    _prevCamUp = camera.getUp();
-    _prevFov = camera.getFov();
-    _hasPrevCamState = true;
-}
-
-void CudaPathTracingRenderer::renderFrame(Camera &camera)
-{
-    if (cameraChanged(camera))
+void CudaPathTracingRenderer::renderFrame(Camera &camera){
+    if (camera.isDirty()){
+        camera.clearDirty();
         resetAccumulation();
-    updateCameraState(camera);
+    }
 
     // 检查场景是否有变动，如有则重新上传
     if (scene_ && scene_->isDirty()) {
-        // 上传基础形状（球体、平面等）
-        uploadScene();
         // 上传BVH模型数据
-        uploadBVH();
+        uploadModels();
         scene_->clearDirty();
         resetAccumulation(); // 场景变化，需要重置累积
     }
@@ -306,9 +205,8 @@ void CudaPathTracingRenderer::renderFrame(Camera &camera)
         }
         int nextAccum = _accumFrameCount + 1;
         launchPathTracer(devPtr, _width, _height, camera,
-            _shapesDev, _shapeCount,
-            _lightsDev, _lightCount,
             _modelsDev, _modelCount,
+            _illuminantsDev, _illuminantCount,
             kSamplesPerPixel, effectiveMaxDepth,
             lightingMode, enableDiffuseImportanceSampling,
             _accumBufferDev, nextAccum, _frame);
@@ -334,42 +232,32 @@ void CudaPathTracingRenderer::renderFrame(Camera &camera)
 
 void CudaPathTracingRenderer::destroy()
 {
-    if (_prog)
-    {
+    if (_prog){
         glDeleteProgram(_prog);
         _prog = 0;
     }
-    if (_vao)
-    {
+    if (_vao){
         glDeleteVertexArrays(1, &_vao);
         _vao = 0;
     }
-    if (_vbo)
-    {
+    if (_vbo){
         glDeleteBuffers(1, &_vbo);
         _vbo = 0;
     }
-    if (_ebo)
-    {
+    if (_ebo){
         glDeleteBuffers(1, &_ebo);
         _ebo = 0;
     }
     freeAccumBuffer();
-    if (_shapesDev)
-    {
-        cudaFree(_shapesDev);
-        _shapesDev = nullptr;
-    }
-    if (_lightsDev) {
-        cudaFree(_lightsDev);
-        _lightsDev = nullptr;
-        _lightCount = 0;
-    }
     if (_modelsDev) {
         cudaFree(_modelsDev);
         _modelsDev = nullptr;
     }
+    if( _illuminantsDev) {
+        cudaFree(_illuminantsDev);
+        _illuminantsDev = nullptr;
+    }
     if (scene_) {
-        scene_->freeBVHGPU();
+        scene_->freeModelsGPU();
     }
 }

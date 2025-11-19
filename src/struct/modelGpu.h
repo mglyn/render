@@ -17,3 +17,18 @@ struct ModelGPU {
     MaterialGPU* materials;
     int materialCount;
 };
+
+// GPU端模型数据结构
+struct IlluminantGPU {
+    BVHNodeGPU* bvhNodes;
+    int nodeCount;
+
+    int* triangleIndices;
+    TriangleGPU* triangles;
+    int triangleCount;
+
+    MaterialGPU* materials;
+    int materialCount;
+
+    glm::vec3 emission; 
+};

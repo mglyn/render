@@ -3,7 +3,7 @@
 
 class Camera;
 class ModelGPU;
-struct Shape;
+struct IlluminantGPU;
 
 enum LightingMode : int {
     LIGHTING_MODE_DIRECT = 0,
@@ -16,12 +16,10 @@ extern "C" void launchPathTracer(
     int width,
     int height,
     const Camera& camera,
-    const Shape* shapes,
-    int shapeCount,
-    const Shape* lights,
-    int lightCount,
     const ModelGPU* models,
     int modelCount,
+    const IlluminantGPU* illuminants,
+    int illuminantCount,
     int samplesPerPixel,
     int maxDepth,
     LightingMode lightingMode,

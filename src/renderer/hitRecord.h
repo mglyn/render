@@ -9,5 +9,5 @@ struct HitRecord {
     glm::vec3 normal;
     glm::vec3 albedo;
     float metallic;
-    glm::vec3 emission; // 物体自发光（可为0）
+    glm::vec3 emission;
 };

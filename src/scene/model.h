@@ -24,7 +24,7 @@ public:
     void updateModelMatrix(); // 公开此方法
     const glm::mat4& getModelMatrix() const { return modelMatrix_; }
 
-    const std::vector<TrianglePOD>& triangles() const { return triangles_; }
+    const std::vector<Triangle>& triangles() const { return triangles_; }
     const std::vector<int>& getTriangleIndices() const { return triIndices_; }
     const std::vector<BVHNode>& bvh() const { return bvh_; }
     const Material& material() const { return defaultMaterial_; }
@@ -35,7 +35,7 @@ public:
 private:
     // void updateModelMatrix(); // 移至 public
 
-    std::vector<TrianglePOD> triangles_;
+    std::vector<Triangle> triangles_;
     std::vector<int> triIndices_;            // 构建BVH用的索引
     std::vector<BVHNode> bvh_;
     Material defaultMaterial_{};
@@ -49,4 +49,7 @@ private:
     glm::vec3 rotation_{0.0f}; // 欧拉角 (度)
     glm::vec3 scale_{1.0f};
     glm::mat4 modelMatrix_{1.0f};
+
+    // 发光属性
+    glm::vec3 emission_{0.0f, 0.0f, 0.0f};
 };

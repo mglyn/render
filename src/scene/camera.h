@@ -15,26 +15,44 @@ public:
     glm::vec3 getUp() const { return up; }
     float getFov() const { return fov; }
 
-    void setPosition(const glm::vec3& pos) { position = pos; updateVectors(); }
-    void setFov(float newFov) { fov = newFov; }
-    void setYawPitch(float newYaw, float newPitch) { yaw = newYaw; pitch = newPitch; updateVectors(); }
+    void setPosition(const glm::vec3& pos) { 
+        position = pos;
+        updateVectors(); 
+        markDirty();
+    }
+    void setFov(float newFov) { 
+        fov = newFov; 
+        markDirty(); 
+    }
+    void setYawPitch(float newYaw, float newPitch) { 
+        yaw = newYaw; pitch = newPitch; 
+        updateVectors(); 
+        markDirty(); 
+    }
 
     // 获取视图和投影矩阵
     glm::mat4 getViewMatrix() const;
     glm::mat4 getProjectionMatrix(float aspectRatio) const;
 
+    bool isDirty() const { return dirty; }
+    void clearDirty() { dirty = false; }
+    void markDirty() { dirty = true; }
+
 private:
     void updateVectors();
+
     glm::vec3 position;
     glm::vec3 front;
     glm::vec3 up;
     glm::vec3 right;
     glm::vec3 worldUp{0.0f,1.0f,0.0f};
+
     float yaw;
     float pitch;
     float fov;
-    float movementSpeed = 3.0f;
 
-    // 新增：角速度（度/秒）
-    float rotationSpeed = 90.0f;
+    float movementSpeed = 1.0f;
+    float rotationSpeed = 30.0f;
+
+    bool dirty = true;
 };

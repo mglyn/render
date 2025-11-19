@@ -10,7 +10,7 @@
 namespace bvh {
 
 // 递归构建BVH（中值划分，按最长轴）
-int buildRecursive(std::vector<BVHNode>& bvh, const std::vector<TrianglePOD>& triangles, std::vector<int>& triIndices, int begin, int end, int maxLeafSize)
+int buildRecursive(std::vector<BVHNode>& bvh, const std::vector<Triangle>& triangles, std::vector<int>& triIndices, int begin, int end, int maxLeafSize)
 {
     BVHNode node; // 初始化
     AABB bounds;
@@ -35,12 +35,12 @@ int buildRecursive(std::vector<BVHNode>& bvh, const std::vector<TrianglePOD>& tr
     float midCoord = 0.f;
     for (int i = begin; i < end; ++i)
     {
-        const TrianglePOD &t = triangles[triIndices[i]];
+        const Triangle &t = triangles[triIndices[i]];
         midCoord += (t.v0[axis] + t.v1[axis] + t.v2[axis]) / 3.f;
     }
     midCoord /= n;
     int pivot = std::partition(triIndices.begin() + begin, triIndices.begin() + end, [&](int triIdx)
-                               { const TrianglePOD &t=triangles[triIdx]; float c=(t.v0[axis]+t.v1[axis]+t.v2[axis])/3.f; return c < midCoord; }) -
+                               { const Triangle &t=triangles[triIdx]; float c=(t.v0[axis]+t.v1[axis]+t.v2[axis])/3.f; return c < midCoord; }) -
                 triIndices.begin();
     if (pivot == begin || pivot == end)
         pivot = begin + n / 2; // 退化处理
@@ -53,7 +53,7 @@ int buildRecursive(std::vector<BVHNode>& bvh, const std::vector<TrianglePOD>& tr
     return idx;
 }
 
-void build(std::vector<BVHNode>& bvh, const std::vector<TrianglePOD>& triangles, std::vector<int>& triIndices, int maxLeafSize)
+void build(std::vector<BVHNode>& bvh, const std::vector<Triangle>& triangles, std::vector<int>& triIndices, int maxLeafSize)
 {
     bvh.clear();
     if (triangles.empty())
