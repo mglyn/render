@@ -4,7 +4,7 @@
 #include <memory>
 #include <limits>
 #include <glm/glm.hpp>
-#include "scene/shape.h"
+#include "struct/shape.h"
 
 // 轴对齐包围盒 (AABB)
 struct AABB {

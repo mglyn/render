@@ -1,7 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 
-#include "scene/shape.h"
+#include "struct/shape.h"
 
 class Camera;
 extern "C" void launchPathTracer(
@@ -11,6 +11,8 @@ extern "C" void launchPathTracer(
     const Camera& camera,
     const Shape* shapes,
     int shapeCount,
+    const ModelGPU* models,
+    int modelCount,
     int samplesPerPixel,
     int maxDepth,
     glm::vec3* accumBuffer,

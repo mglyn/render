@@ -6,8 +6,8 @@
 
 #include <string>
 #include "scene/camera.h"
-#include "gpu/gpu_resources.h"
-#include "scene/shape.h"
+#include "app/gpu_resources.h"
+#include "struct/shape.h"
 #include "scene/scene.h"
 
 // CUDA 路径追踪渲染器（原始实现迁移）

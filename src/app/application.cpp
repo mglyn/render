@@ -1,5 +1,6 @@
-#include "application.h"
+#include "app/application.h"
 #include "app/ui.h"
+
 #include <iostream>
 #include <glm/glm.hpp>
 
@@ -42,7 +43,7 @@ bool Application::initialize() {
     }
 
     // 创建相机
-    _camera = std::make_unique<Camera>(glm::vec3(0.0f, 0.0f, 3.0f));
+    _camera = std::make_unique<Camera>(glm::vec3(0.0f, 0.0f, 0.0f));
 
     // 创建场景
     _scene = std::make_unique<Scene>();
@@ -60,14 +61,17 @@ bool Application::initialize() {
 }
 
 void Application::createScene() {
+
+    _camera->setPosition(glm::vec3(0.0f, 0.0f, 2.0f));
+    
     // 加载 OBJ 模型
     MaterialPOD dragonMaterial{glm::vec3(0.7f, 0.7f, 0.9f), 0.1f}; // 淡蓝色，轻微金属感
     auto dragonModel = std::make_unique<Model>(dragonMaterial);
     if (dragonModel->loadObj("../../model/simple_dragon.obj", dragonMaterial)) {
         _scene->addModel(std::move(dragonModel), 
-            glm::vec3(0.0f, -0.5f, 0.0f), // 位置
-            glm::vec3(0.0f),              // 旋转
-            glm::vec3(2.5f));             // 缩放
+            glm::vec3(0.0f, 0.0f, 0.0f), // 位置
+            glm::vec3(0, 90, 0),              // 旋转
+            glm::vec3(1.8f));             // 缩放
         std::cout << "Successfully loaded and added simple_dragon.obj" << std::endl;
     } else {
         std::cerr << "Failed to load simple_dragon.obj" << std::endl;
@@ -76,12 +80,20 @@ void Application::createScene() {
             MaterialPOD{glm::vec3(0.7f, 0.7f, 0.9f), 0.1f}));
     }
 
-    // 添加一个简单的地面
-    _scene->addShape(Shape::make_sphere(glm::vec3(0.f, -1001.f, 0.f), 1000.f, 
-        MaterialPOD{glm::vec3(0.8f, 0.8f, 0.8f)}));
-
+    // 地面
+    _scene->addShape(Shape::make_plane(glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 
+        MaterialPOD{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
+    // 天花板
+    _scene->addShape(Shape::make_plane(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), 
+        MaterialPOD{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
+    // 红色左墙
+    _scene->addShape(Shape::make_plane(glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), MaterialPOD{glm::vec3(0.8f, 0.1f, 0.1f), 0.0f}));
+    // 绿色右墙，位于 x = +1，朝向 -x
+    _scene->addShape(Shape::make_plane(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), MaterialPOD{glm::vec3(0.1f, 0.8f, 0.1f), 0.0f}));
+    // 背景墙 位于 z = -1，朝向 +z
+    _scene->addShape(Shape::make_plane(glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 0.0f, 1.0f), MaterialPOD{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
     // 添加光源
-    _scene->addShape(Shape::make_sphere(glm::vec3(2.0f, 2.0f, 2.0f), 0.2f, 
+    _scene->addShape(Shape::make_sphere(glm::vec3(0.3f, 0.8f, 0.3f), 0.1f, 
         MaterialPOD{glm::vec3(0.0f), 0.0f, glm::vec3(1.0f, 1.0f, 0.9f) * 8.0f}));
 
     // 添加一个参考球体

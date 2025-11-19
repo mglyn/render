@@ -1,4 +1,4 @@
-#include "gpu/intersect.h"
+#include "renderer/intersect.h"
 
 // AABB与射线求交测试
 __device__ bool intersectAABB(const glm::vec3& minBounds, const glm::vec3& maxBounds, const Ray& r) {

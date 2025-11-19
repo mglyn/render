@@ -1,6 +1,7 @@
-#include "gpu_resources.h"
 #include <iostream>
 #include <glad/glad.h>
+
+#include "gpu_resources.h"
 
 GPUResources::GPUResources() {}
 GPUResources::~GPUResources(){ destroyPBO(); }

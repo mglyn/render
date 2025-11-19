@@ -13,14 +13,14 @@ find_package(OpenGL REQUIRED)
 add_executable(raytracer                # 定义主可执行文件raytracer
   src/app/main.cpp                      # 主入口
   src/app/application.cpp               # 应用程序管理
-  src/gpu/path_tracer.cu                # CUDA路径追踪核
+  src/renderer/path_tracer.cu                # CUDA路径追踪核
   src/scene/camera.cpp                  # 相机实现
   src/scene/scene.cpp                   # 场景管理
   src/scene/model.cpp                   # 模型与BVH实现
   src/bvh/bvh.cpp
-  src/gpu/intersect.cu               # 场景求交实现
+  src/renderer/intersect.cu               # 场景求交实现
   # Shape POD 定义在 shape.h（仅头文件）；后续如需单独加速结构可新增 .cu
-  src/gpu/gpu_resources.cpp             # GPU资源管理
+  src/app/gpu_resources.cpp             # GPU资源管理
   src/app/window.cpp                    # 窗口管理
   src/renderer/cuda_path_tracing_renderer.cpp  # CUDA路径追踪渲染器
   src/app/ui.cpp                        # UI实现
@@ -30,7 +30,7 @@ target_include_directories(raytracer PRIVATE
   ${CMAKE_SOURCE_DIR}/src              # 根src目录（头文件）
   ${CMAKE_SOURCE_DIR}/src/app          # app层
   ${CMAKE_SOURCE_DIR}/src/scene        # scene层
-  ${CMAKE_SOURCE_DIR}/src/gpu          # gpu层
+  ${CMAKE_SOURCE_DIR}/src/struct         
   ${CMAKE_SOURCE_DIR}/src/bvh
   ${CMAKE_SOURCE_DIR}/src/renderer)         
 # =====================

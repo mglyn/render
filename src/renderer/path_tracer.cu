@@ -1,9 +1,9 @@
 #include "path_tracer.h"
 #include "scene/camera.h"
-#include "scene/shape.h"
-#include "scene/Ray.h"
-#include "gpu/pt_utils.h"
-#include "gpu/intersect.h"
+#include "struct/shape.h"
+#include "struct/ray.h"
+#include "renderer/pt_utils.h"
+#include "renderer/intersect.h"
 
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
@@ -84,9 +84,72 @@ namespace {
             } else {
                 // 漫反射分支（余弦加权半球采样）。
                 glm::vec3 bounceDir = cosineSampleHemisphere(rec.normal, seed);
-                // Lambert BRDF 与余弦采样结合将得到 albedo，但因为我们是先择用概率采样，需要除以 pDiff
                 if (pDiff > 0.0f) throughput *= rec.albedo / pDiff;
                 r = Ray(rec.point + rec.normal * 0.001f, bounceDir);
+
+                // === 直接光照：向光源采样 + pdf修正 ===
+                // 只采样球体光源
+                int lightCount = 0;
+                for (int i = 0; i < shapeCount; ++i) {
+                    if (shapes[i].type == SHAPE_SPHERE &&
+                        (shapes[i].data.sph.mat.emission.r > 0.0f || shapes[i].data.sph.mat.emission.g > 0.0f || shapes[i].data.sph.mat.emission.b > 0.0f)) {
+                        ++lightCount;
+                    }
+                }
+                if (lightCount > 0) {
+                    int lightIdx = static_cast<int>(rand01(seed) * lightCount);
+                    int found = 0;
+                    const Shape* light = nullptr;
+                    for (int i = 0; i < shapeCount; ++i) {
+                        if (shapes[i].type == SHAPE_SPHERE &&
+                            (shapes[i].data.sph.mat.emission.r > 0.0f || shapes[i].data.sph.mat.emission.g > 0.0f || shapes[i].data.sph.mat.emission.b > 0.0f)) {
+                            if (found == lightIdx) {
+                                light = &shapes[i];
+                                break;
+                            }
+                            ++found;
+                        }
+                    }
+                    if (light) {
+                        // 球面均匀采样
+                        float u1 = rand01(seed);
+                        float u2 = rand01(seed);
+                        float z = 1.0f - 2.0f * u1;
+                        float phi = 2.0f * 3.1415926535f * u2;
+                        float rxy = sqrtf(1.0f - z * z);
+                        glm::vec3 onLight = light->data.sph.center + light->data.sph.radius * glm::vec3(rxy * cosf(phi), rxy * sinf(phi), z);
+                        glm::vec3 toLight = onLight - rec.point;
+                        float dist2 = glm::dot(toLight, toLight);
+                        float dist = sqrtf(dist2);
+                        glm::vec3 toLightDir = toLight / dist;
+                        // 检查可见性（shadow ray）
+                        Ray shadowRay(rec.point + rec.normal * 0.001f, toLightDir);
+                        bool occluded = false;
+                        for (int i = 0; i < shapeCount; ++i) {
+                            if (&shapes[i] == light) continue;
+                            HitRecord tmpRec;
+                            if (intersect(&shapes[i], 1, shadowRay, 0.001f, dist - 0.001f, tmpRec)) {
+                                occluded = true;
+                                break;
+                            }
+                        }
+                        if (!occluded) {
+                            // pdf = 1 / (4 * pi * r^2) * 1 / lightCount
+                            float lightArea = 4.0f * 3.1415926535f * light->data.sph.radius * light->data.sph.radius;
+                            float pdf = (1.0f / lightArea) * (1.0f / lightCount);
+                            float cosTheta = glm::dot(-toLightDir, rec.normal);
+                            float cosThetaL = glm::dot(toLightDir, (onLight - light->data.sph.center) / light->data.sph.radius);
+                            if (cosTheta > 0.0f && cosThetaL > 0.0f) {
+                                // 距离平方衰减和法线夹角修正
+                                float G = cosTheta * cosThetaL / dist2;
+                                glm::vec3 Le = light->data.sph.mat.emission;
+                                // Lambert BRDF = albedo / pi
+                                glm::vec3 brdf = rec.albedo / 3.1415926535f;
+                                radiance += throughput * Le * brdf * G / pdf;
+                            }
+                        }
+                    }
+                }
             }
             // 俄罗斯轮盘赌：当 throughput 很小时随机终止以减少无用的追踪路径。
             // 使用亮度作为衡量（L1或L2均可），并保证在继续时对 throughput 进行重要性权重校正以保持无偏。

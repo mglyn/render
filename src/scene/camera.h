@@ -7,8 +7,6 @@ public:
         float yaw=-90.f, float pitch=0.f, float fov=60.f);
 
     void processMovement(bool forward, bool backward, bool left, bool right, bool up, bool down, float deltaTime, bool constrainToXZ = true);
-
-    // 新增：统一处理旋转输入，内部用角速度
     void processRotationInput(bool left, bool right, bool up, bool down, float deltaTime);
 
     glm::vec3 getPosition() const { return position; }
@@ -17,7 +15,11 @@ public:
     glm::vec3 getUp() const { return up; }
     float getFov() const { return fov; }
 
-    // 新增：获取视图和投影矩阵
+    void setPosition(const glm::vec3& pos) { position = pos; updateVectors(); }
+    void setFov(float newFov) { fov = newFov; }
+    void setYawPitch(float newYaw, float newPitch) { yaw = newYaw; pitch = newPitch; updateVectors(); }
+
+    // 获取视图和投影矩阵
     glm::mat4 getViewMatrix() const;
     glm::mat4 getProjectionMatrix(float aspectRatio) const;
 

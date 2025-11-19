@@ -5,7 +5,7 @@
 #include <GLFW/glfw3.h>
 #include "window.h"
 #include "scene/camera.h"
-#include "gpu/gpu_resources.h"
+#include "app/gpu_resources.h"
 #include "renderer/cuda_path_tracing_renderer.h"
 #include "scene/scene.h"
 

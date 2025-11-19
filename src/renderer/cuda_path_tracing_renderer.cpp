@@ -3,7 +3,7 @@
 #include <cuda_runtime.h>
 
 #include "cuda_path_tracing_renderer.h"
-#include "gpu/path_tracer.h"
+#include "renderer/path_tracer.h"
 
 std::string CudaPathTracingRenderer::loadFile(const char *path)
 {
