@@ -1,8 +1,10 @@
 #pragma once
 #include <vector>
 #include <memory>
-#include "shape.h"
-#include "model.h"
+
+#include "struct/shape.h"
+#include "struct/modelGPU.h"
+#include "scene/model.h"
 
 // Scene 类：统一管理场景中的所有物体（Shape）
 // 后续可扩展为管理材质、灯光、加速结构等

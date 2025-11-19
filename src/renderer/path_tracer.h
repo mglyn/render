@@ -1,9 +1,10 @@
 #pragma once
 #include <glm/glm.hpp>
 
-#include "struct/shape.h"
-
 class Camera;
+class ModelGPU;
+struct Shape;
+
 extern "C" void launchPathTracer(
     unsigned int* pbo,
     int width,

@@ -11,6 +11,6 @@ struct ModelGPU {
     int nodeCount;
 
     int* triangleIndices;
-    Triangle* triangles;
+    TrianglePOD* triangles;
     int triangleCount;
 };

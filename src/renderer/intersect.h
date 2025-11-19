@@ -4,6 +4,7 @@
 #include "struct/ray.h"
 #include "struct/shape.h"
 #include "renderer/hitRecord.h"
+#include "struct/modelGpu.h"
 
 // 遍历 Shape 数组求交，返回最近命中
 __device__ bool intersect(
