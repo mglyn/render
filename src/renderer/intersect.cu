@@ -1,4 +1,5 @@
 #include "renderer/intersect.h"
+#include "struct/shapeGpu.h"
 
 // AABB与射线求交测试
 __device__ bool intersectAABB(const glm::vec3& minBounds, const glm::vec3& maxBounds, const Ray& r) {
@@ -35,8 +36,8 @@ __device__ bool intersectAABB(const glm::vec3& minBounds, const glm::vec3& maxBo
     return tmax >= 0.0f;
 }
 
-// 单个三角形求交
-__device__ bool intersectTriangle(const TrianglePOD& tri, const Ray& r, float tMin, float tMax, HitRecord& rec) {
+// 单个三角形求交（使用 TriangleGPU 与材质索引）
+__device__ bool intersectTriangle(const TriangleGPU& tri, const MaterialGPU* materials, const Ray& r, float tMin, float tMax, HitRecord& rec) {
     const glm::vec3& v0 = tri.v0;
     const glm::vec3& v1 = tri.v1;
     const glm::vec3& v2 = tri.v2;
@@ -66,9 +67,11 @@ __device__ bool intersectTriangle(const TrianglePOD& tri, const Ray& r, float tM
     rec.t = t;
     rec.point = r.at(t);
     rec.normal = glm::normalize(glm::cross(edge1, edge2));
-    rec.albedo = tri.mat.albedo;
-    rec.metallic = tri.mat.metallic;
-    rec.emission = tri.mat.emission;
+
+    const MaterialGPU& mat = materials[tri.materialIndex];
+    rec.albedo = mat.albedo;
+    rec.metallic = mat.metallic;
+    rec.emission = mat.emission;
     
     return true;
 }
@@ -104,7 +107,7 @@ __device__ bool intersectBVH(const ModelGPU* models, int modelCount, const Ray& 
                     int triIdx = model.triangleIndices ? model.triangleIndices[idxInIndices] : idxInIndices;
                     if (triIdx >= model.triangleCount) continue;
                     
-                    if (intersectTriangle(model.triangles[triIdx], r, tMin, closest, tempRec)) {
+                    if (intersectTriangle(model.triangles[triIdx], model.materials, r, tMin, closest, tempRec)) {
                         hitAnything = true;
                         closest = tempRec.t;
                         rec = tempRec;

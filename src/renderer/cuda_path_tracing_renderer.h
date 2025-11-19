@@ -39,6 +39,16 @@ private:
     ModelGPU* _modelsDev = nullptr;
     int _modelCount = 0;
 
+    // Path tracing settings
+    int _spp = 8;
+    int _maxDepth = 5;
+
+public:
+    void setSpp(int spp) { _spp = spp; resetAccumulation(); }
+    void setMaxDepth(int depth) { _maxDepth = depth; resetAccumulation(); }
+    int getSpp() const { return _spp; }
+    int getMaxDepth() const { return _maxDepth; }
+
     bool initShaders();
     bool initQuad();
     std::string loadFile(const char* path);

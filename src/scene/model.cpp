@@ -11,6 +11,8 @@ Model::Model() {
 }
 
 Model::Model(Material mat) : defaultMaterial_(mat) {
+    // 单材质构造时，将默认材质加入材质表
+    materials_.push_back(defaultMaterial_);
     updateModelMatrix();
 }
 
@@ -27,6 +29,10 @@ static TrianglePOD makeTri(const glm::vec3 &a, const glm::vec3 &b, const glm::ve
 bool Model::loadObj(const std::string &path, const Material &mat)
 {
     defaultMaterial_ = mat;
+    materials_.clear();
+    triMaterialIndices_.clear();
+    // 目前先简单地将传入材质作为唯一材质，所有三角形使用 index 0
+    materials_.push_back(defaultMaterial_);
     std::ifstream ifs(path);
     if (!ifs.is_open())
         return false;
@@ -111,6 +117,7 @@ bool Model::loadObj(const std::string &path, const Material &mat)
                 if (v0i < 0 || v1i < 0 || v2i < 0)
                     continue;
                 triangles_.push_back(makeTri(getPos(v0i), getPos(v1i), getPos(v2i), defaultMaterial_));
+                triMaterialIndices_.push_back(0); // 先全部指向默认材质
             }
         }
     }

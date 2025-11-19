@@ -257,8 +257,8 @@ void CudaPathTracingRenderer::renderFrame(Camera &camera)
     size_t size = 0;
     if (_gpu->mapWrite(reinterpret_cast<void **>(&devPtr), &size))
     {
-        constexpr int kSamplesPerPixel = 8;
-        constexpr int kMaxDepth = 5;
+        int kSamplesPerPixel = _spp;
+        int kMaxDepth = _maxDepth;
         int nextAccum = _accumFrameCount + 1;
         launchPathTracer(devPtr, _width, _height, camera, _shapesDev, _shapeCount, _modelsDev, _modelCount, kSamplesPerPixel, kMaxDepth, _accumBufferDev, nextAccum, _frame);
         _gpu->unmapWrite();

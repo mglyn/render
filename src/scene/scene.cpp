@@ -88,12 +88,43 @@ bool Scene::uploadBVHToGPU() {
             if (err != cudaSuccess) { /* 错误处理 */ return false; }
         }
         
-        // 上传变换后的三角形
+        // 上传材质数组（支持每个模型多材质）
+        const auto& hostMaterials = model->materials();
+        gpuModel.materialCount = static_cast<int>(hostMaterials.size());
+        if (gpuModel.materialCount > 0) {
+            std::vector<MaterialGPU> gpuMats(gpuModel.materialCount);
+            for (int i = 0; i < gpuModel.materialCount; ++i) {
+                gpuMats[i].albedo = hostMaterials[i].albedo;
+                gpuMats[i].metallic = hostMaterials[i].metallic;
+                gpuMats[i].emission = hostMaterials[i].emission;
+                gpuMats[i].pad = 0.0f;
+            }
+
+            cudaError_t err = cudaMalloc(&gpuModel.materials, gpuModel.materialCount * sizeof(MaterialGPU));
+            if (err != cudaSuccess) { /* 错误处理 */ return false; }
+            err = cudaMemcpy(gpuModel.materials, gpuMats.data(), gpuModel.materialCount * sizeof(MaterialGPU), cudaMemcpyHostToDevice);
+            if (err != cudaSuccess) { /* 错误处理 */ return false; }
+        }
+
+        // 上传变换后的三角形（转换为 TriangleGPU，仅保存材质索引）
         gpuModel.triangleCount = static_cast<int>(worldTriangles.size());
         if (gpuModel.triangleCount > 0) {
-            cudaError_t err = cudaMalloc(&gpuModel.triangles, gpuModel.triangleCount * sizeof(TrianglePOD));
+            const auto& triMatIndices = model->triangleMaterialIndices();
+            std::vector<TriangleGPU> gpuTriangles(gpuModel.triangleCount);
+            for (int i = 0; i < gpuModel.triangleCount; ++i) {
+                gpuTriangles[i].v0 = worldTriangles[i].v0;
+                gpuTriangles[i].v1 = worldTriangles[i].v1;
+                gpuTriangles[i].v2 = worldTriangles[i].v2;
+                int matIdx = 0;
+                if (i < static_cast<int>(triMatIndices.size())) {
+                    matIdx = triMatIndices[i];
+                }
+                gpuTriangles[i].materialIndex = matIdx;
+            }
+
+            cudaError_t err = cudaMalloc(&gpuModel.triangles, gpuModel.triangleCount * sizeof(TriangleGPU));
             if (err != cudaSuccess) { /* 错误处理 */ return false; }
-            err = cudaMemcpy(gpuModel.triangles, worldTriangles.data(), gpuModel.triangleCount * sizeof(TrianglePOD), cudaMemcpyHostToDevice);
+            err = cudaMemcpy(gpuModel.triangles, gpuTriangles.data(), gpuModel.triangleCount * sizeof(TriangleGPU), cudaMemcpyHostToDevice);
             if (err != cudaSuccess) { /* 错误处理 */ return false; }
         }
         
@@ -115,6 +146,7 @@ void Scene::freeBVHGPU() {
         if (gpuModel.bvhNodes) cudaFree(gpuModel.bvhNodes);
         if (gpuModel.triangleIndices) cudaFree(gpuModel.triangleIndices);
         if (gpuModel.triangles) cudaFree(gpuModel.triangles);
+        if (gpuModel.materials) cudaFree(gpuModel.materials);
     }
     gpuModels_.clear(); // 在这里清空是安全的，因为它持有的是旧数据
     bvhUploaded_ = false;

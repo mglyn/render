@@ -152,7 +152,7 @@ void Application::render() {
     _currentRenderer->renderFrame(*_camera);
 
     // 渲染 UI
-    ui::renderUI(_nextMode, _window->fps());
+    ui::renderUI(_nextMode, _window->fps(), _pathRenderer.get());
     // ui::renderBVHDebugUI(_scene.get());
 
     ui::endFrame();
