@@ -2,7 +2,7 @@
 
 #include <glm/glm.hpp>
 
-#include "struct/matirialPOD.h"
+#include "struct/matirial.h"
 
 enum ShapeType {
 	SHAPE_SPHERE = 0,
@@ -13,20 +13,20 @@ enum ShapeType {
 struct SpherePOD {
 	glm::vec3 center;
 	float radius;
-	MaterialPOD mat;
+	Material mat;
 };
 
 struct TrianglePOD {
 	glm::vec3 v0;
 	glm::vec3 v1;
 	glm::vec3 v2;
-	MaterialPOD mat;
+	Material mat;
 };
 
 struct PlanePOD {
 	glm::vec3 point;  // 平面上一点
 	glm::vec3 normal; // 已归一化
-	MaterialPOD mat;
+	Material mat;
 };
 
 // GPU端BVH节点结构（POD）
@@ -59,7 +59,7 @@ struct Shape {
 	} data;
 
 	// 工厂函数，简化 Shape 创建
-	static Shape make_sphere(const glm::vec3& center, float radius, const MaterialPOD& mat) {
+	static Shape make_sphere(const glm::vec3& center, float radius, const Material& mat) {
 		Shape s{}; // 使用聚合初始化，避免默认构造函数问题
 		s.type = SHAPE_SPHERE;
 		s.data.sph.center = center;
@@ -68,7 +68,7 @@ struct Shape {
 		return s;
 	}
 
-	static Shape make_triangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const MaterialPOD& mat) {
+	static Shape make_triangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const Material& mat) {
 		Shape s{}; // 使用聚合初始化
 		s.type = SHAPE_TRIANGLE;
 		s.data.tri.v0 = v0;
@@ -78,7 +78,7 @@ struct Shape {
 		return s;
 	}
 
-	static Shape make_plane(const glm::vec3& point, const glm::vec3& normal, const MaterialPOD& mat) {
+	static Shape make_plane(const glm::vec3& point, const glm::vec3& normal, const Material& mat) {
 		Shape s{}; // 使用聚合初始化
 		s.type = SHAPE_PLANE;
 		s.data.pln.point = point;

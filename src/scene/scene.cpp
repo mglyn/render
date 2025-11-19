@@ -31,7 +31,7 @@ void Scene::addModel(std::unique_ptr<Model> model, const glm::vec3 &pos, const g
 }
 
 // 新的静态方法 createModelFromObj
-std::unique_ptr<Model> Scene::createModelFromObj(const std::string &path, const MaterialPOD &mat) {
+std::unique_ptr<Model> Scene::createModelFromObj(const std::string &path, const Material &mat) {
     auto model = std::make_unique<Model>(mat);
     if (!model->loadObj(path, mat)) {
         std::cerr << "[Scene] OBJ 加载失败: " << path << std::endl;

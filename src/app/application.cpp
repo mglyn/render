@@ -65,7 +65,7 @@ void Application::createScene() {
     _camera->setPosition(glm::vec3(0.0f, 0.0f, 2.0f));
     
     // 加载 OBJ 模型
-    MaterialPOD dragonMaterial{glm::vec3(0.7f, 0.7f, 0.9f), 0.1f}; // 淡蓝色，轻微金属感
+    Material dragonMaterial{glm::vec3(0.7f, 0.7f, 0.9f), 0.1f}; // 淡蓝色，轻微金属感
     auto dragonModel = std::make_unique<Model>(dragonMaterial);
     if (dragonModel->loadObj("../../model/simple_dragon.obj", dragonMaterial)) {
         _scene->addModel(std::move(dragonModel), 
@@ -77,28 +77,28 @@ void Application::createScene() {
         std::cerr << "Failed to load simple_dragon.obj" << std::endl;
         // 如果加载失败，添加一个测试球体
         _scene->addShape(Shape::make_sphere(glm::vec3(0.0f, 0.0f, 0.0f), 0.5f, 
-            MaterialPOD{glm::vec3(0.7f, 0.7f, 0.9f), 0.1f}));
+            Material{glm::vec3(0.7f, 0.7f, 0.9f), 0.1f}));
     }
 
     // 地面
     _scene->addShape(Shape::make_plane(glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 
-        MaterialPOD{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
+        Material{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
     // 天花板
     _scene->addShape(Shape::make_plane(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), 
-        MaterialPOD{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
+        Material{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
     // 红色左墙
-    _scene->addShape(Shape::make_plane(glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), MaterialPOD{glm::vec3(0.8f, 0.1f, 0.1f), 0.0f}));
+    _scene->addShape(Shape::make_plane(glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), Material{glm::vec3(0.8f, 0.1f, 0.1f), 0.0f}));
     // 绿色右墙，位于 x = +1，朝向 -x
-    _scene->addShape(Shape::make_plane(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), MaterialPOD{glm::vec3(0.1f, 0.8f, 0.1f), 0.0f}));
+    _scene->addShape(Shape::make_plane(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), Material{glm::vec3(0.1f, 0.8f, 0.1f), 0.0f}));
     // 背景墙 位于 z = -1，朝向 +z
-    _scene->addShape(Shape::make_plane(glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 0.0f, 1.0f), MaterialPOD{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
+    _scene->addShape(Shape::make_plane(glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 0.0f, 1.0f), Material{glm::vec3(0.8f, 0.8f, 0.8f), 0.0f}));
     // 添加光源
     _scene->addShape(Shape::make_sphere(glm::vec3(0.3f, 0.8f, 0.3f), 0.1f, 
-        MaterialPOD{glm::vec3(0.0f), 0.0f, glm::vec3(1.0f, 1.0f, 0.9f) * 8.0f}));
+        Material{glm::vec3(0.0f), 0.0f, glm::vec3(1.0f, 1.0f, 0.9f) * 8.0f}));
 
     // 添加一个参考球体
     _scene->addShape(Shape::make_sphere(glm::vec3(-1.5f, 0.5f, 0.0f), 0.3f, 
-        MaterialPOD{glm::vec3(0.9f, 0.2f, 0.2f), 0.0f}));
+        Material{glm::vec3(0.9f, 0.2f, 0.2f), 0.0f}));
 }
 
 void Application::handleInput(float deltaTime) {
@@ -118,7 +118,7 @@ void Application::handleInput(float deltaTime) {
             static_cast<float>(rand()) / RAND_MAX
         );
         float metallic = static_cast<float>(rand()) / RAND_MAX;
-        _scene->addShape(Shape::make_sphere(pos, r, MaterialPOD{albedo, metallic}));
+        _scene->addShape(Shape::make_sphere(pos, r, Material{albedo, metallic}));
         std::cout << "Added a new sphere. Total shapes: " << _scene->getShapes().size() << std::endl;
     }
 

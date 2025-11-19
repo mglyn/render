@@ -11,10 +11,10 @@
 class Model {
 public:
     Model();
-    explicit Model(MaterialPOD mat);
+    explicit Model(Material mat);
 
     // 从 OBJ 文件加载数据（只支持 v / vn / vt / f）
-    bool loadObj(const std::string &path, const MaterialPOD &mat);
+    bool loadObj(const std::string &path, const Material &mat);
     void buildBVH(int maxLeafSize = 4);
 
     // 设置模型变换
@@ -27,7 +27,7 @@ public:
     const std::vector<TrianglePOD>& triangles() const { return triangles_; }
     const std::vector<int>& getTriangleIndices() const { return triIndices_; }
     const std::vector<BVHNode>& bvh() const { return bvh_; }
-    const MaterialPOD& material() const { return defaultMaterial_; }
+    const Material& material() const { return defaultMaterial_; }
     bool empty() const { return triangles_.empty(); }
 
 private:
@@ -36,7 +36,7 @@ private:
     std::vector<TrianglePOD> triangles_;
     std::vector<int> triIndices_;     // 构建BVH用的索引
     std::vector<BVHNode> bvh_;
-    MaterialPOD defaultMaterial_{};
+    Material defaultMaterial_{};
 
     // 模型变换
     glm::vec3 position_{0.0f};

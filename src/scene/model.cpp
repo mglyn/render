@@ -10,11 +10,11 @@ Model::Model() {
     updateModelMatrix();
 }
 
-Model::Model(MaterialPOD mat) : defaultMaterial_(mat) {
+Model::Model(Material mat) : defaultMaterial_(mat) {
     updateModelMatrix();
 }
 
-static TrianglePOD makeTri(const glm::vec3 &a, const glm::vec3 &b, const glm::vec3 &c, const MaterialPOD &m)
+static TrianglePOD makeTri(const glm::vec3 &a, const glm::vec3 &b, const glm::vec3 &c, const Material &m)
 {
     TrianglePOD t{};
     t.v0 = a;
@@ -24,7 +24,7 @@ static TrianglePOD makeTri(const glm::vec3 &a, const glm::vec3 &b, const glm::ve
     return t;
 }
 
-bool Model::loadObj(const std::string &path, const MaterialPOD &mat)
+bool Model::loadObj(const std::string &path, const Material &mat)
 {
     defaultMaterial_ = mat;
     std::ifstream ifs(path);

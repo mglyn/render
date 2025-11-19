@@ -22,7 +22,7 @@ public:
                   const glm::vec3 &rotation = glm::vec3(0.0f),
                   const glm::vec3 &scale = glm::vec3(1.0f));
     // 直接从OBJ文件创建模型，但不添加到场景
-    static std::unique_ptr<Model> createModelFromObj(const std::string &path, const MaterialPOD &mat);
+    static std::unique_ptr<Model> createModelFromObj(const std::string &path, const Material &mat);
 
     const std::vector<std::unique_ptr<Model>>& getModels() const { return models_; }
     
