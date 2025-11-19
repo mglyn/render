@@ -11,7 +11,7 @@ find_package(OpenGL REQUIRED)
 # 可执行文件与源码组织
 # =====================
 add_executable(raytracer                # 定义主可执行文件raytracer
-  src/app/main.cpp                      # 主入口
+  src/main.cpp                      # 主入口
   src/app/application.cpp               # 应用程序管理
   src/renderer/path_tracer.cu                # CUDA路径追踪核
   src/scene/camera.cpp                  # 相机实现
