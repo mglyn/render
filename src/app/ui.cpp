@@ -47,6 +47,7 @@ static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
         int spp = renderer->getSpp();
         int maxDepth = renderer->getMaxDepth();
         bool enableDiffuseIS = renderer->getEnableDiffuseImportanceSampling();
+        int lightingMode = static_cast<int>(renderer->getLightingMode());
 
         ImGui::Text("Samples Per Pixel: %d", spp);
         ImGui::SameLine();
@@ -75,6 +76,29 @@ static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
         ImGui::Separator();
         if (ImGui::Checkbox("Enable Diffuse Importance Sampling", &enableDiffuseIS)) {
             renderer->setEnableDiffuseImportanceSampling(enableDiffuseIS);
+        }
+
+        const char* lightingModeLabels[] = {
+            "Direct Lighting",
+            "Indirect Lighting",
+            "MIS"
+        };
+        if (ImGui::Combo("Lighting Mode", &lightingMode, lightingModeLabels, IM_ARRAYSIZE(lightingModeLabels))) {
+            renderer->setLightingMode(static_cast<LightingMode>(lightingMode));
+        }
+
+        bool enableRussianRoulette = renderer->getEnableRussianRoulette();
+        int rouletteStartDepth = renderer->getRouletteStartDepth();
+        int currMaxDepth = renderer->getMaxDepth();
+        currMaxDepth = currMaxDepth > 1 ? currMaxDepth : 1;
+        if (ImGui::TreeNodeEx("Russian Roulette", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::Checkbox("Enable Russian Roulette", &enableRussianRoulette)) {
+                renderer->setEnableRussianRoulette(enableRussianRoulette);
+            }
+            if (ImGui::SliderInt("Start Depth", &rouletteStartDepth, 1, currMaxDepth)) {
+                renderer->setRouletteStartDepth(rouletteStartDepth);
+            }
+            ImGui::TreePop();
         }
 
         ImGui::TreePop();

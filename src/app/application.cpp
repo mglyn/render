@@ -65,7 +65,7 @@ void Application::createScene() {
     _camera->setPosition(glm::vec3(0.0f, 0.0f, 2.0f));
     
     // 加载 OBJ 模型
-    Material dragonMaterial{glm::vec3(0.7f, 0.7f, 0.9f), 0.1f}; // 淡蓝色，轻微金属感
+    Material dragonMaterial{glm::vec3(0.7f, 0.7f, 0.9f), 0.0f}; // 淡蓝色，轻微金属感
     auto dragonModel = std::make_unique<Model>(dragonMaterial);
     if (dragonModel->loadObj("../../model/simple_dragon.obj", dragonMaterial)) {
         _scene->addModel(std::move(dragonModel), 
@@ -75,6 +75,19 @@ void Application::createScene() {
         std::cout << "Successfully loaded and added simple_dragon.obj" << std::endl;
     } else {
         std::cerr << "Failed to load simple_dragon.obj" << std::endl;
+    }
+
+    // 加载光源模型
+    Material lightMaterial{glm::vec3(0.0f, 1.0f, 1.0f), 0.0f}; // 无金属感
+    auto lightModel = std::make_unique<Model>(lightMaterial, glm::vec3(15.0f, 15.0f, 15.0f)); // 强发光
+    if (lightModel->loadObj("../../model/sphere.obj", lightMaterial)) {
+        _scene->addModel(std::move(lightModel), 
+            glm::vec3(0.0f, 1.0f, 0.0f), // 位置
+            glm::vec3(0, 0, 0),              // 旋转
+            glm::vec3(0.1f));             // 缩放
+        std::cout << "Successfully loaded and added light_sphere.obj" << std::endl;
+    } else {
+        std::cerr << "Failed to load light_sphere.obj" << std::endl;
     }
 }
 

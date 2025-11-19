@@ -49,6 +49,8 @@ private:
 
     bool _enableDiffuseImportanceSampling = true;
     LightingMode _lightingMode = LIGHTING_MODE_MIS;
+    bool _enableRussianRoulette = true;
+    int _rouletteStartDepth = 3;
 
 public:
     int getSpp() const { return _spp; }
@@ -62,6 +64,12 @@ public:
     
     LightingMode getLightingMode() const { return _lightingMode; }
     void setLightingMode(LightingMode mode) { _lightingMode = mode; resetAccumulation(); }
+
+    bool getEnableRussianRoulette() const { return _enableRussianRoulette; }
+    void setEnableRussianRoulette(bool enable) { _enableRussianRoulette = enable; resetAccumulation(); }
+
+    int getRouletteStartDepth() const { return _rouletteStartDepth; }
+    void setRouletteStartDepth(int depth) { _rouletteStartDepth = depth; resetAccumulation(); }
 
     bool initShaders();
     bool initQuad();

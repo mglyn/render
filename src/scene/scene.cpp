@@ -115,8 +115,10 @@ bool Scene::uploadModelsToGPU() {
         }
 
         if(model->emission() == glm::vec3(0.0f)) {
+            std::cout << "Model with emission (0,0,0) added to gpuModels" << std::endl;
             newGpuModels.push_back(gpuModel);
         } else {
+            std::cout << "Model with emission (" << model->emission().x << ", " << model->emission().y << ", " << model->emission().z << ") added to illuminants" << std::endl;
             newIlluminants.push_back({gpuModel.bvhNodes, gpuModel.nodeCount,
                                       gpuModel.triangleIndices,
                                       gpuModel.triangles,
@@ -132,6 +134,7 @@ bool Scene::uploadModelsToGPU() {
 
     // 3. 用新的数据交换旧的向量，这是一个原子操作
     gpuModels_.swap(newGpuModels);
+    illuminantModels_.swap(newIlluminants);
     
     modelUploaded = true;
     return true;
@@ -145,6 +148,13 @@ void Scene::freeModelsGPU() {
         if (gpuModel.materials) cudaFree(gpuModel.materials);
     }
     gpuModels_.clear(); // 在这里清空是安全的，因为它持有的是旧数据
+    for (auto& illuminant : illuminantModels_) {
+        if (illuminant.bvhNodes) cudaFree(illuminant.bvhNodes);
+        if (illuminant.triangleIndices) cudaFree(illuminant.triangleIndices);
+        if (illuminant.triangles) cudaFree(illuminant.triangles);
+        if (illuminant.materials) cudaFree(illuminant.materials);
+    }
+    illuminantModels_.clear();
     modelUploaded = false;
 }
 

@@ -24,6 +24,8 @@ extern "C" void launchPathTracer(
     int maxDepth,
     LightingMode lightingMode,
     bool enableDiffuseImportanceSampling,
+    bool enableRussianRoulette,
+    int rouletteStartDepth,
     glm::vec3* accumBuffer,
     int accumFrameCount,
     int frameIndex);

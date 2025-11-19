@@ -28,6 +28,91 @@ namespace {
 
     constexpr float kPi = 3.1415926535f;
 
+    __device__ float powerHeuristic(float pdfA, float pdfB) {
+        float a = pdfA * pdfA;
+        float b = pdfB * pdfB;
+        float denom = a + b;
+        if (denom <= 0.0f) return 0.0f;
+        return a / denom;
+    }
+
+    __device__ float lightPdfFromHit(
+        const IlluminantGPU* illuminants,
+        int illuminantCount,
+        int lightIndex,
+        int triangleIndex,
+        const glm::vec3& rayOrigin,
+        const glm::vec3& hitPoint,
+        const glm::vec3& lightNormal)
+    {
+        if (!illuminants || lightIndex < 0 || lightIndex >= illuminantCount) return 0.0f;
+        const IlluminantGPU& light = illuminants[lightIndex];
+        if (!light.triangles || triangleIndex < 0 || triangleIndex >= light.triangleCount) return 0.0f;
+
+        const TriangleGPU& tri = light.triangles[triangleIndex];
+        glm::vec3 v0 = tri.v0;
+        glm::vec3 v1 = tri.v1;
+        glm::vec3 v2 = tri.v2;
+        glm::vec3 edge1 = v1 - v0;
+        glm::vec3 edge2 = v2 - v0;
+        float area = 0.5f * glm::length(glm::cross(edge1, edge2));
+        if (area <= 1e-6f) return 0.0f;
+
+        float pdfArea = 1.0f / (static_cast<float>(illuminantCount) * static_cast<float>(light.triangleCount) * area);
+        glm::vec3 toLight = hitPoint - rayOrigin;
+        float dist2 = glm::dot(toLight, toLight);
+        if (dist2 <= 1e-8f) return 0.0f;
+        float dist = sqrtf(dist2);
+        glm::vec3 wi = toLight / dist;
+        float cosLight = fmaxf(glm::dot(lightNormal, -wi), 0.0f);
+        if (cosLight <= 1e-6f) return 0.0f;
+
+        return pdfArea * dist2 / cosLight;
+    }
+
+    __device__ bool sampleIlluminantSurface(
+        const IlluminantGPU* illuminants,
+        int illuminantCount,
+        uint32_t& seed,
+        glm::vec3& lightPos,
+        glm::vec3& lightNormal,
+        glm::vec3& lightEmission,
+        float& pdfArea)
+    {
+        if (!illuminants || illuminantCount <= 0) return false;
+
+        int lightIdx = static_cast<int>(rand01(seed) * illuminantCount);
+        lightIdx = glm::clamp(lightIdx, 0, illuminantCount - 1);
+        const IlluminantGPU& light = illuminants[lightIdx];
+        if (light.triangleCount <= 0 || !light.triangles) return false;
+
+        int triIdx = static_cast<int>(rand01(seed) * light.triangleCount);
+        triIdx = glm::clamp(triIdx, 0, light.triangleCount - 1);
+        const TriangleGPU& tri = light.triangles[triIdx];
+
+        glm::vec3 v0 = tri.v0;
+        glm::vec3 v1 = tri.v1;
+        glm::vec3 v2 = tri.v2;
+        glm::vec3 edge1 = v1 - v0;
+        glm::vec3 edge2 = v2 - v0;
+        glm::vec3 triNormal = glm::cross(edge1, edge2);
+        float area = 0.5f * glm::length(triNormal);
+        if (area <= 1e-6f) return false;
+        lightNormal = glm::normalize(triNormal);
+
+        float u1 = rand01(seed);
+        float u2 = rand01(seed);
+        float su1 = sqrtf(u1);
+        float baryA = 1.0f - su1;
+        float baryB = u2 * su1;
+        float baryC = 1.0f - baryA - baryB;
+        lightPos = baryA * v0 + baryB * v1 + baryC * v2;
+
+        lightEmission = light.emission;
+        pdfArea = 1.0f / (static_cast<float>(illuminantCount) * static_cast<float>(light.triangleCount) * area);
+        return true;
+    }
+
     __device__ float bsdfPdf(bool importanceSampling, float cosTheta){
         if (importanceSampling) {
             return cosTheta > 0.0f ? cosTheta / kPi : 0.0f;
@@ -35,26 +120,111 @@ namespace {
         return 1.0f / (2.0f * kPi);
     }
 
+    __device__ glm::vec3 sampleDirectLightingContribution(
+        const ModelGPU* models,
+        int modelCount,
+        const IlluminantGPU* illuminants,
+        int illuminantCount,
+        uint32_t& seed,
+        const glm::vec3& point,
+        const glm::vec3& normal,
+        const glm::vec3& brdf,
+        const glm::vec3& baseWeight,
+        float pDiff,
+        bool enableDiffuseImportanceSampling,
+        LightingMode lightingMode)
+    {
+        if (!illuminants || illuminantCount <= 0 || glm::length(brdf) <= 0.0f || glm::length(baseWeight) <= 0.0f) {
+            return glm::vec3(0.0f);
+        }
+
+        glm::vec3 lightPos;
+        glm::vec3 lightNormal;
+        glm::vec3 lightEmission;
+        float pdfArea = 0.0f;
+        if (!sampleIlluminantSurface(illuminants, illuminantCount, seed, lightPos, lightNormal, lightEmission, pdfArea)) {
+            return glm::vec3(0.0f);
+        }
+
+        glm::vec3 toLight = lightPos - point;
+        float dist2 = glm::dot(toLight, toLight);
+        if (dist2 <= 1e-6f) {
+            return glm::vec3(0.0f);
+        }
+        float dist = sqrtf(dist2);
+        glm::vec3 wi = toLight / dist;
+        float cosThetaSurface = fmaxf(glm::dot(normal, wi), 0.0f);
+        float cosThetaLight = fmaxf(glm::dot(lightNormal, -wi), 0.0f);
+        if (cosThetaSurface <= 0.0f || cosThetaLight <= 0.0f) {
+            return glm::vec3(0.0f);
+        }
+
+        float pdfDir = pdfArea * dist2 / cosThetaLight;
+        if (pdfDir <= 1e-6f) {
+            return glm::vec3(0.0f);
+        }
+
+        float weightNEE = 1.0f;
+        if (lightingMode == LIGHTING_MODE_MIS && pDiff > 0.0f) {
+            float pdfLocal = bsdfPdf(enableDiffuseImportanceSampling, cosThetaSurface);
+            float pdfBsdfLightDir = pDiff * pdfLocal;
+            weightNEE = powerHeuristic(pdfDir, pdfBsdfLightDir);
+        }
+
+        bool occluded = false;
+        float maxT = dist - 0.001f;
+        if (maxT > 0.0f) {
+            Ray shadowRay(point + normal * 0.001f, wi);
+            if (modelCount > 0 && models) {
+                occluded = anyHit(models, modelCount, shadowRay, 0.001f, maxT);
+            }
+            if (!occluded && illuminantCount > 0 && illuminants) {
+                occluded = anyHit(illuminants, illuminantCount, shadowRay, 0.001f, maxT);
+            }
+        }
+
+        if (occluded) {
+            return glm::vec3(0.0f);
+        }
+
+        return baseWeight * brdf * lightEmission * (cosThetaSurface / pdfDir) * weightNEE;
+    }
+
     // 路径追踪主循环：Fresnel概率混合采样，累积throughput
     __device__ glm::vec3 traceRay(const ModelGPU* models, int modelCount,
                                   const IlluminantGPU* illuminants, int illuminantCount,
                                   Ray r, uint32_t &seed, int maxDepth,
                                   LightingMode lightingMode,
-                                  bool enableDiffuseImportanceSampling) 
+                                  bool enableDiffuseImportanceSampling,
+                                  bool enableRussianRoulette,
+                                  int rouletteStartDepth) 
     {
         glm::vec3 radiance(0.0f);
         glm::vec3 throughput(1.0f);
+        float prevBsdfPdf = 0.0f;
+        bool prevBounceDiffuse = false;
 
         for (int depth = 0; depth < maxDepth; ++depth) {
             // 统一求交：同时检查BVH和基础形状，选择最近命中
             HitRecord rec;
             bool hit = false;
             float closest = FLT_MAX;
+            glm::vec3 rayOrigin = r.origin();
             
-            // 检查BVH模型
+            // 检查模型（保持最近命中）
             if (modelCount > 0 && models) {
                 HitRecord bvhRec;
-                if (intersectBVH(models, modelCount, r, 0.001f, closest, bvhRec)) {
+                if (intersectModels(models, modelCount, r, 0.001f, closest, bvhRec)) {
+                    hit = true;
+                    closest = bvhRec.t;
+                    rec = bvhRec;
+                }
+            }
+
+            // 检查发光体（用当前 closest 作为上界，仅更近时覆盖）
+            if (illuminantCount > 0 && illuminants) {
+                HitRecord bvhRec;
+                if (intersectModels(illuminants, illuminantCount, r, 0.001f, closest, bvhRec)) {
                     hit = true;
                     closest = bvhRec.t;
                     rec = bvhRec;
@@ -67,10 +237,23 @@ namespace {
                 break;
             }
 
-            // 自发光累加
-            radiance += throughput * rec.emission;
+            // 自发光累加（MIS 对命中光源时的权重修正）
+            if (glm::dot(rec.emission, rec.emission) > 0.0f) {
+                float weight = 1.0f;
+                if (lightingMode == LIGHTING_MODE_MIS && prevBounceDiffuse && prevBsdfPdf > 0.0f && rec.fromIlluminant) {
+                    float pdfLight = lightPdfFromHit(illuminants, illuminantCount, rec.objectIndex, rec.primitiveIndex, rayOrigin, rec.point, rec.normal);
+                    if (pdfLight > 0.0f) {
+                        weight = powerHeuristic(prevBsdfPdf, pdfLight);
+                    } else {
+                        weight = 1.0f;
+                    }
+                }
+                radiance += throughput * rec.emission * weight;
+            }
 
             glm::vec3 throughputPrev = throughput;
+            float currBsdfPdf = 0.0f;
+            bool currBounceDiffuse = false;
 
             // 基于金属度的离散混合采样。
             // 为了保持无偏，需要对选择的采样策略按其选择概率进行重要性权重校正。
@@ -87,6 +270,8 @@ namespace {
                 // 将反射率按选择概率归一化，确保无偏（BRDF/p(selection)).
                 if (pSpec > 0.0f) throughput *= rec.albedo / pSpec;
                 r = Ray(rec.point + rec.normal * 0.001f, glm::normalize(refl));
+                currBsdfPdf = 0.0f;
+                currBounceDiffuse = false;
             } else {
                 // 漫反射分支：根据开关选择是否使用余弦加权半球重要性采样
                 if (pDiff <= 0.0f) {
@@ -114,30 +299,38 @@ namespace {
                     pdfBsdfSample = bsdfPdf(enableDiffuseImportanceSampling, cosThetaBounce);
                 }
 
-                if (allowDirect) { 
-                    // 向光源采样
+                if (allowDirect) {
+                    radiance += sampleDirectLightingContribution(models, modelCount, illuminants, illuminantCount, seed, rec.point, rec.normal, brdf, baseWeight, pDiff, enableDiffuseImportanceSampling, lightingMode);
                 }
 
                 if (!allowIndirect) {
+                    prevBsdfPdf = 0.0f;
+                    prevBounceDiffuse = false;
                     break;
                 }
 
                 throughput = throughputPrev * rec.albedo * invPDiff;
                 r = Ray(rec.point + rec.normal * 0.001f, bounceDir);
+                currBounceDiffuse = true;
+                currBsdfPdf = pDiff > 0.0f ? pDiff * pdfBsdfSample : 0.0f;
             }
             // 俄罗斯轮盘赌：当 throughput 很小时随机终止以减少无用的追踪路径。
             // 使用亮度作为衡量（L1或L2均可），并保证在继续时对 throughput 进行重要性权重校正以保持无偏。
-            float q = fmaxf(0.05f, 1.0f - glm::max(throughput.r, glm::max(throughput.g, throughput.b))); // 最小保留概率
-            // q 是“终止概率”，实际继续概率为 (1 - q)。若 (1 - q) 很小则直接终止以避免数值问题。
-            float contProb = 1.0f - q;
-            if (depth > 2) { // 给几个深度以保留初始重要路径
-                float rn = rand01(seed);
-                if (rn < q || contProb <= 0.0f) {
-                    break; // 终止路径
+            if (enableRussianRoulette) {
+                int startDepth = glm::max(1, rouletteStartDepth);
+                if (depth >= startDepth) {
+                    float q = fmaxf(0.05f, 1.0f - glm::max(throughput.r, glm::max(throughput.g, throughput.b))); // 最小保留概率
+                    float contProb = 1.0f - q;
+                    float rn = rand01(seed);
+                    if (rn < q || contProb <= 0.0f) {
+                        break;
+                    }
+                    throughput /= contProb;
                 }
-                // 如果继续，需要将 throughput 除以继续概率以纠正期望（无偏性）
-                throughput /= contProb;
             }
+
+            prevBsdfPdf = currBsdfPdf;
+            prevBounceDiffuse = currBounceDiffuse;
         }
         return radiance;
     }
@@ -148,6 +341,7 @@ namespace {
         const IlluminantGPU* illuminants, int illuminantCount,
         unsigned int *pbo, int width, int height, int samplesPerPixel, int maxDepth,
         LightingMode lightingMode, bool enableDiffuseImportanceSampling,
+        bool enableRussianRoulette, int rouletteStartDepth,
         glm::vec3 camPos, glm::vec3 lowerLeft, glm::vec3 horizontal, glm::vec3 vertical,
         glm::vec3 *accumBuffer, int accumFrameCount, int frameIndex) 
     {
@@ -166,7 +360,8 @@ namespace {
             color += traceRay(models, modelCount,
                               illuminants, illuminantCount,
                               r, seed, maxDepth,
-                              lightingMode, enableDiffuseImportanceSampling); // 路径追踪
+                              lightingMode, enableDiffuseImportanceSampling,
+                              enableRussianRoulette, rouletteStartDepth); // 路径追踪
         }
         color /= static_cast<float>(samplesPerPixel); // 将累积的总和除以采样数目得到平均颜色
         color = glm::clamp(color, glm::vec3(0.0f), glm::vec3(1.0f)); // 保证数值在显示合法范围内，避免溢出
@@ -195,6 +390,7 @@ extern "C" void launchPathTracer(
     const IlluminantGPU* illuminants, int illuminantCount,
     int samplesPerPixel, int maxDepth,
     LightingMode lightingMode, bool enableDiffuseImportanceSampling,
+    bool enableRussianRoulette, int rouletteStartDepth,
     glm::vec3 *accumBuffer, int accumFrameCount, int frameIndex) 
 {
     float aspect = static_cast<float>(width) / static_cast<float>(height);
@@ -214,6 +410,7 @@ extern "C" void launchPathTracer(
                                      illuminants, illuminantCount,
                                      pbo, width, height, samplesPerPixel, maxDepth,
                                      lightingMode, enableDiffuseImportanceSampling,
+                                     enableRussianRoulette, rouletteStartDepth,
                                      camPos, lowerLeft, horizontal, vertical,
                                      accumBuffer, accumFrameCount, frameIndex);
 }

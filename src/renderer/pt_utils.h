@@ -12,6 +12,7 @@ __device__ inline float rand01(uint32_t& seed) {
     return static_cast<float>(pcg_hash(seed)) / 4294967295.0f; 
 }
 
+// 重要性采样
 __device__ inline glm::vec3 cosineSampleHemisphere(const glm::vec3& normal, uint32_t& seed) {
     float u1 = rand01(seed);
     float u2 = rand01(seed);
@@ -26,7 +27,7 @@ __device__ inline glm::vec3 cosineSampleHemisphere(const glm::vec3& normal, uint
     return glm::normalize(sample);
 }
 
-// 均匀半球采样（用于关闭重要性采样时对比）
+// 均匀半球采样
 __device__ inline glm::vec3 uniformSampleHemisphere(const glm::vec3& normal, uint32_t& seed) {
     float u1 = rand01(seed);
     float u2 = rand01(seed);

@@ -209,6 +209,8 @@ void CudaPathTracingRenderer::renderFrame(Camera &camera){
         int kMaxDepth = _maxDepth;
         bool enableDiffuseImportanceSampling = _enableDiffuseImportanceSampling;
         LightingMode lightingMode = _lightingMode;
+        bool enableRussianRoulette = _enableRussianRoulette;
+        int rouletteStartDepth = _rouletteStartDepth;
         int effectiveMaxDepth = kMaxDepth;
         if (lightingMode == LIGHTING_MODE_DIRECT) {
             effectiveMaxDepth = std::min(kMaxDepth, 1);
@@ -221,6 +223,7 @@ void CudaPathTracingRenderer::renderFrame(Camera &camera){
             _illuminantsDev, _illuminantCount,
             kSamplesPerPixel, effectiveMaxDepth,
             lightingMode, enableDiffuseImportanceSampling,
+            enableRussianRoulette, rouletteStartDepth,
             _accumBufferDev, nextAccum, _frame);
         _gpu->unmapWrite();
         _gpu->finalizeWrite();
