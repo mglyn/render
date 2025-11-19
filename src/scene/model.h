@@ -11,7 +11,7 @@
 class Model {
 public:
     Model();
-    explicit Model(Material mat);
+    explicit Model(Material mat, glm::vec3 emission = glm::vec3(0.0f));
 
     // 从 OBJ 文件加载数据（只支持 v / vn / vt / f）
     bool loadObj(const std::string &path, const Material &mat);
@@ -30,6 +30,7 @@ public:
     const Material& material() const { return defaultMaterial_; }
     const std::vector<Material>& materials() const { return materials_; }
     const std::vector<int>& triangleMaterialIndices() const { return triMaterialIndices_; }
+    const glm::vec3& emission() const { return emission_; }
     bool empty() const { return triangles_.empty(); }
 
 private:

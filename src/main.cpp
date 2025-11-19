@@ -2,7 +2,7 @@
 #include <iostream>
 
 int main() {
-    Application app(1280, 720);
+    Application app(800, 450);
     
     if (!app.initialize()) {
         std::cerr << "Failed to initialize application" << std::endl;

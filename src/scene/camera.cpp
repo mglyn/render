@@ -22,6 +22,8 @@ void Camera::processMovement(bool forward, bool backward, bool left, bool rightB
     }
     if(upB) position += worldUp * velocity;
     if(down) position -= worldUp * velocity;
+
+    markDirty();
 }
 
 
@@ -37,6 +39,8 @@ void Camera::processRotationInput(bool left, bool right, bool up, bool down, flo
     if (pitch > 89.0f) pitch = 89.0f;
     if (pitch < -89.0f) pitch = -89.0f;
     updateVectors();
+
+    markDirty();
 }
 
 glm::mat4 Camera::getViewMatrix() const {

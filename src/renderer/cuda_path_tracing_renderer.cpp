@@ -48,7 +48,6 @@ bool CudaPathTracingRenderer::uploadModels() {
     
     const auto& gpuModels = scene_->getGPUModels();
     _modelCount = static_cast<int>(gpuModels.size());
-    
     if (_modelCount > 0) {
         // 分配并上传模型数据结构
         cudaError_t err = cudaMalloc(&_modelsDev, _modelCount * sizeof(ModelGPU));
@@ -65,12 +64,30 @@ bool CudaPathTracingRenderer::uploadModels() {
         
         std::cout << "Uploaded " << _modelCount << " models to GPU." << std::endl;
     }
+
+    const auto& illuminants = scene_->getIlluminants();
+    _illuminantCount = static_cast<int>(illuminants.size());
+    if(_illuminantCount > 0) {
+        // 分配并上传光源数据结构
+        cudaError_t err = cudaMalloc(&_illuminantsDev, _illuminantCount * sizeof(IlluminantGPU));
+        if (err != cudaSuccess) {
+            std::cerr << "Failed to allocate device memory for illuminants: " << cudaGetErrorString(err) << std::endl;
+            return false;
+        }
+
+        err = cudaMemcpy(_illuminantsDev, illuminants.data(), _illuminantCount * sizeof(IlluminantGPU), cudaMemcpyHostToDevice);
+        if (err != cudaSuccess) {
+            std::cerr << "Failed to copy illuminants to device: " << cudaGetErrorString(err) << std::endl;
+            return false;
+        }
+
+        std::cout << "Uploaded " << _illuminantCount << " illuminants to GPU." << std::endl;
+    }
     
     return true;
 }
 
-bool CudaPathTracingRenderer::init(int width, int height, GPUResources *gpu, Scene* scene)
-{
+bool CudaPathTracingRenderer::init(int width, int height, GPUResources *gpu, Scene* scene){
     _width = width;
     _height = height;
     _gpu = gpu;
@@ -93,8 +110,7 @@ bool CudaPathTracingRenderer::init(int width, int height, GPUResources *gpu, Sce
     return true;
 }
 
-bool CudaPathTracingRenderer::initShaders()
-{
+bool CudaPathTracingRenderer::initShaders(){
     std::string vs = loadFile("shaders/fullscreen.vert");
     std::string fs = loadFile("shaders/texture.frag");
     if (vs.empty() || fs.empty())
@@ -120,8 +136,7 @@ bool CudaPathTracingRenderer::initShaders()
     return true;
 }
 
-bool CudaPathTracingRenderer::initQuad()
-{
+bool CudaPathTracingRenderer::initQuad(){
     float quadVerts[] = {-1.f, -1.f, 0.f, 0.f, 1.f, -1.f, 1.f, 0.f, 1.f, 1.f, 1.f, 1.f, -1.f, 1.f, 0.f, 1.f};
     unsigned int idx[] = {0, 1, 2, 2, 3, 0};
     glGenVertexArrays(1, &_vao);
@@ -140,8 +155,7 @@ bool CudaPathTracingRenderer::initQuad()
     return true;
 }
 
-bool CudaPathTracingRenderer::allocateAccumBuffer()
-{
+bool CudaPathTracingRenderer::allocateAccumBuffer(){
     size_t pixelCount = static_cast<size_t>(_width) * static_cast<size_t>(_height);
     if (pixelCount == 0)
         return false;
@@ -157,16 +171,14 @@ bool CudaPathTracingRenderer::allocateAccumBuffer()
     return true;
 }
 
-void CudaPathTracingRenderer::freeAccumBuffer()
-{
+void CudaPathTracingRenderer::freeAccumBuffer(){
     if (_accumBufferDev)
     {
         cudaFree(_accumBufferDev);
         _accumBufferDev = nullptr;
     }
 }
-void CudaPathTracingRenderer::resetAccumulation()
-{
+void CudaPathTracingRenderer::resetAccumulation(){
     if (_accumBufferDev)
     {
         cudaMemset(_accumBufferDev, 0, static_cast<size_t>(_width) * static_cast<size_t>(_height) * sizeof(glm::vec3));

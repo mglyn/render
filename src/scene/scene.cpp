@@ -28,8 +28,9 @@ std::unique_ptr<Model> Scene::createModelFromObj(const std::string &path, const 
 }
 
 bool Scene::uploadModelsToGPU() {
-    // 1. 创建一个临时的 ModelGPU 向量
+    // 1. 创建临时的 ModelGPU 向量
     std::vector<ModelGPU> newGpuModels;
+    std::vector<IlluminantGPU> newIlluminants;
 
     for (const auto& model : models_) {
         if (model->empty()) continue;
@@ -113,7 +114,17 @@ bool Scene::uploadModelsToGPU() {
             if (err != cudaSuccess) { /* 错误处理 */ return false; }
         }
 
-        newGpuModels.push_back(gpuModel);
+        if(model->emission() == glm::vec3(0.0f)) {
+            newGpuModels.push_back(gpuModel);
+        } else {
+            newIlluminants.push_back({gpuModel.bvhNodes, gpuModel.nodeCount,
+                                      gpuModel.triangleIndices,
+                                      gpuModel.triangles,
+                                      gpuModel.triangleCount,
+                                      gpuModel.materials,
+                                      gpuModel.materialCount,
+                                      model->emission()});
+        }
     }
     
     // 2. 释放旧的 GPU 资源
@@ -122,7 +133,7 @@ bool Scene::uploadModelsToGPU() {
     // 3. 用新的数据交换旧的向量，这是一个原子操作
     gpuModels_.swap(newGpuModels);
     
-    bvhUploaded_ = true;
+    modelUploaded = true;
     return true;
 }
 
@@ -134,7 +145,7 @@ void Scene::freeModelsGPU() {
         if (gpuModel.materials) cudaFree(gpuModel.materials);
     }
     gpuModels_.clear(); // 在这里清空是安全的，因为它持有的是旧数据
-    bvhUploaded_ = false;
+    modelUploaded = false;
 }
 
 Scene::~Scene() {

@@ -27,6 +27,7 @@ public:
     bool uploadModelsToGPU();
     void freeModelsGPU();
     const std::vector<ModelGPU>& getGPUModels() const { return gpuModels_; }
+    const std::vector<ModelGPU>& getIlluminants() const { return illuminantModels_; }
 
     // 检查场景是否被修改过
     bool isDirty() const { return dirty_; }
@@ -39,7 +40,10 @@ public:
 
 private:
     std::vector<std::unique_ptr<Model>> models_;
+
     std::vector<ModelGPU> gpuModels_;
-    bool bvhUploaded_ = false;
+    std::vector<ModelGPU> illuminantModels_;
+
+    bool modelUploaded = false;
     bool dirty_ = true; // 脏标记，默认为true，确保初始场景被上传
 };

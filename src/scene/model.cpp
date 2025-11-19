@@ -10,7 +10,10 @@ Model::Model() {
     updateModelMatrix();
 }
 
-Model::Model(Material mat) : defaultMaterial_(mat) {
+Model::Model(Material mat, glm::vec3 emission) : 
+defaultMaterial_(mat), 
+emission_(emission) 
+{
     // 单材质构造时，将默认材质加入材质表
     materials_.push_back(defaultMaterial_);
     updateModelMatrix();

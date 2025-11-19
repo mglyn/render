@@ -86,7 +86,8 @@ void Application::handleInput(float deltaTime) {
     bool rotRight = _window->isKeyDown(GLFW_KEY_RIGHT);
     bool rotUp = _window->isKeyDown(GLFW_KEY_UP);
     bool rotDown = _window->isKeyDown(GLFW_KEY_DOWN);
-    _camera->processRotationInput(rotLeft, rotRight, rotUp, rotDown, deltaTime);
+    if(rotLeft || rotRight || rotUp || rotDown)
+        _camera->processRotationInput(rotLeft, rotRight, rotUp, rotDown, deltaTime);
 
     // 相机移动输入
     bool forward = _window->isKeyDown(GLFW_KEY_W);
@@ -95,8 +96,8 @@ void Application::handleInput(float deltaTime) {
     bool rightKey = _window->isKeyDown(GLFW_KEY_D);
     bool upKey = _window->isKeyDown(GLFW_KEY_SPACE);
     bool downKey = (_window->isKeyDown(GLFW_KEY_LEFT_SHIFT) || _window->isKeyDown(GLFW_KEY_RIGHT_SHIFT));
-
-    _camera->processMovement(forward, backward, left, rightKey, upKey, downKey, deltaTime, true);
+    if(forward || backward || left || rightKey || upKey || downKey)
+        _camera->processMovement(forward, backward, left, rightKey, upKey, downKey, deltaTime, true);
 
     // ESC 退出
     if (_window->isKeyDown(GLFW_KEY_ESCAPE)) {

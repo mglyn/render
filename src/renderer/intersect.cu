@@ -76,7 +76,8 @@ __device__ bool intersectTriangle(const TriangleGPU& tri, const MaterialGPU* mat
 }
 
 // BVH遍历求交
-__device__ bool intersectBVH(const ModelGPU* models, int modelCount, const Ray& r, float tMin, float tMax, HitRecord& rec) {
+__device__ bool intersectBVH(const ModelGPU* models, int modelCount, 
+    const Ray& r, float tMin, float tMax, HitRecord& rec) {
     bool hitAnything = false;
     float closest = tMax;
     HitRecord tempRec;
@@ -148,7 +149,7 @@ __device__ bool intersectBVH(const ModelGPU* models, int modelCount, const Ray& 
     return hitAnything;
 }
 
-// Shadow ray：只关心是否被任何物体遮挡（不需要返回具体 HitRecord）
+// Shadow ray：只关心是否被任何非光源遮挡（不需要返回具体 HitRecord）
 __device__ bool anyHit(const ModelGPU* models, int modelCount,
     const Ray& r, float tMin, float tMax)
 {
