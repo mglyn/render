@@ -69,7 +69,5 @@ void Window::updateFPS() {
         m_fps = m_frameCount / (now - m_lastFpsUpdate);
         m_lastFpsUpdate = now;
         m_frameCount = 0;
-        std::string title = m_baseTitle + " | FPS: " + std::to_string(static_cast<int>(m_fps));
-        glfwSetWindowTitle(m_window, title.c_str());
     }
 }

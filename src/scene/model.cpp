@@ -6,6 +6,14 @@
 #include <limits>
 #include <tuple>
 
+Model::Model() {
+    updateModelMatrix();
+}
+
+Model::Model(MaterialPOD mat) : defaultMaterial_(mat) {
+    updateModelMatrix();
+}
+
 static TrianglePOD makeTri(const glm::vec3 &a, const glm::vec3 &b, const glm::vec3 &c, const MaterialPOD &m)
 {
     TrianglePOD t{};
@@ -114,6 +122,34 @@ bool Model::loadObj(const std::string &path, const MaterialPOD &mat)
 
 void Model::buildBVH(int maxLeafSize)
 {
-    bvh::build(bvh_, triangles_, triIndices_, maxLeafSize);
+    std::vector<TrianglePOD> worldTriangles = triangles_;
+    for (auto& tri : worldTriangles) {
+        tri.v0 = glm::vec3(modelMatrix_ * glm::vec4(tri.v0, 1.0f));
+        tri.v1 = glm::vec3(modelMatrix_ * glm::vec4(tri.v1, 1.0f));
+        tri.v2 = glm::vec3(modelMatrix_ * glm::vec4(tri.v2, 1.0f));
+    }
+    bvh::build(bvh_, worldTriangles, triIndices_, maxLeafSize);
 }
+
+void Model::setPosition(const glm::vec3& pos) {
+    position_ = pos;
+}
+
+void Model::setRotation(const glm::vec3& rot) {
+    rotation_ = rot;
+}
+
+void Model::setScale(const glm::vec3& s) {
+    scale_ = s;
+}
+
+void Model::updateModelMatrix() {
+    modelMatrix_ = glm::mat4(1.0f);
+    modelMatrix_ = glm::translate(modelMatrix_, position_);
+    modelMatrix_ = glm::rotate(modelMatrix_, glm::radians(rotation_.x), glm::vec3(1, 0, 0));
+    modelMatrix_ = glm::rotate(modelMatrix_, glm::radians(rotation_.y), glm::vec3(0, 1, 0));
+    modelMatrix_ = glm::rotate(modelMatrix_, glm::radians(rotation_.z), glm::vec3(0, 0, 1));
+    modelMatrix_ = glm::scale(modelMatrix_, scale_);
+}
+
 

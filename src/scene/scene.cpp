@@ -15,39 +15,50 @@ void Scene::addShape(const Shape& shape) {
     setDirty(); // 添加物体后设置脏标记
 }
 
-void Scene::addModel(std::unique_ptr<Model> model) {
+// 新的 addModel 实现
+void Scene::addModel(std::unique_ptr<Model> model, const glm::vec3 &pos, const glm::vec3 &rotation, const glm::vec3 &scale) {
     if (!model || model->empty()) {
         std::cerr << "[Scene] 添加模型失败：模型为空" << std::endl;
         return;
     }
-    // 不再将模型三角形添加到Shape列表，避免重复存储
-    // 模型将通过BVH系统单独管理
+    model->setPosition(pos);
+    model->setRotation(rotation);
+    model->setScale(scale);
+    model->updateModelMatrix(); // 在所有变换设置后，手动更新一次矩阵
+    model->buildBVH();
     models_.push_back(std::move(model));
     setDirty();
 }
 
-bool Scene::addModelFromObj(const std::string &path, const MaterialPOD &mat) {
+// 新的静态方法 createModelFromObj
+std::unique_ptr<Model> Scene::createModelFromObj(const std::string &path, const MaterialPOD &mat) {
     auto model = std::make_unique<Model>(mat);
     if (!model->loadObj(path, mat)) {
         std::cerr << "[Scene] OBJ 加载失败: " << path << std::endl;
-        return false;
+        return nullptr;
     }
-    model->buildBVH();
-    addModel(std::move(model));
-    return true;
+    return model;
 }
 
 bool Scene::uploadBVHToGPU() {
-    freeBVHGPU();
-    gpuModels_.clear();
-    
+    // 1. 创建一个临时的 ModelGPU 向量
+    std::vector<ModelGPU> newGpuModels;
+
     for (const auto& model : models_) {
         if (model->empty()) continue;
         
         ModelGPU gpuModel{};
         const auto& bvh = model->bvh();
-        const auto& triangles = model->triangles();
         
+        // 应用模型变换到三角形
+        std::vector<TrianglePOD> worldTriangles = model->triangles();
+        const glm::mat4& modelMatrix = model->getModelMatrix();
+        for (auto& tri : worldTriangles) {
+            tri.v0 = glm::vec3(modelMatrix * glm::vec4(tri.v0, 1.0f));
+            tri.v1 = glm::vec3(modelMatrix * glm::vec4(tri.v1, 1.0f));
+            tri.v2 = glm::vec3(modelMatrix * glm::vec4(tri.v2, 1.0f));
+        }
+
         // 上传BVH节点
         gpuModel.nodeCount = static_cast<int>(bvh.size());
         if (gpuModel.nodeCount > 0) {
@@ -63,31 +74,37 @@ bool Scene::uploadBVHToGPU() {
             }
             
             cudaError_t err = cudaMalloc(&gpuModel.bvhNodes, gpuModel.nodeCount * sizeof(BVHNodeGPU));
-            if (err != cudaSuccess) return false;
+            if (err != cudaSuccess) { /* 错误处理 */ return false; }
             err = cudaMemcpy(gpuModel.bvhNodes, gpuNodes.data(), gpuModel.nodeCount * sizeof(BVHNodeGPU), cudaMemcpyHostToDevice);
-            if (err != cudaSuccess) return false;
+            if (err != cudaSuccess) { /* 错误处理 */ return false; }
         }
         
-        // 上传三角形索引（用于BVH叶子节点）
+        // 上传三角形索引
         const auto& triIndices = model->getTriangleIndices();
         if (!triIndices.empty()) {
             cudaError_t err = cudaMalloc(&gpuModel.triangleIndices, triIndices.size() * sizeof(int));
-            if (err != cudaSuccess) return false;
+            if (err != cudaSuccess) { /* 错误处理 */ return false; }
             err = cudaMemcpy(gpuModel.triangleIndices, triIndices.data(), triIndices.size() * sizeof(int), cudaMemcpyHostToDevice);
-            if (err != cudaSuccess) return false;
+            if (err != cudaSuccess) { /* 错误处理 */ return false; }
         }
         
-        // 上传三角形
-        gpuModel.triangleCount = static_cast<int>(triangles.size());
+        // 上传变换后的三角形
+        gpuModel.triangleCount = static_cast<int>(worldTriangles.size());
         if (gpuModel.triangleCount > 0) {
             cudaError_t err = cudaMalloc(&gpuModel.triangles, gpuModel.triangleCount * sizeof(TrianglePOD));
-            if (err != cudaSuccess) return false;
-            err = cudaMemcpy(gpuModel.triangles, triangles.data(), gpuModel.triangleCount * sizeof(TrianglePOD), cudaMemcpyHostToDevice);
-            if (err != cudaSuccess) return false;
+            if (err != cudaSuccess) { /* 错误处理 */ return false; }
+            err = cudaMemcpy(gpuModel.triangles, worldTriangles.data(), gpuModel.triangleCount * sizeof(TrianglePOD), cudaMemcpyHostToDevice);
+            if (err != cudaSuccess) { /* 错误处理 */ return false; }
         }
         
-        gpuModels_.push_back(gpuModel);
+        newGpuModels.push_back(gpuModel);
     }
+    
+    // 2. 释放旧的 GPU 资源
+    freeBVHGPU();
+
+    // 3. 用新的数据交换旧的向量，这是一个原子操作
+    gpuModels_.swap(newGpuModels);
     
     bvhUploaded_ = true;
     return true;
@@ -99,6 +116,6 @@ void Scene::freeBVHGPU() {
         if (gpuModel.triangleIndices) cudaFree(gpuModel.triangleIndices);
         if (gpuModel.triangles) cudaFree(gpuModel.triangles);
     }
-    gpuModels_.clear();
+    gpuModels_.clear(); // 在这里清空是安全的，因为它持有的是旧数据
     bvhUploaded_ = false;
 }

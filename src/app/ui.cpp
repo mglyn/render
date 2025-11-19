@@ -37,9 +37,11 @@ void endFrame() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void renderUI(int& rendererMode) {
+void renderUI(int& rendererMode, double fps) {
     ImGui::Begin("Renderer Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
     
+    ImGui::Text("FPS: %.1f", fps);
+
     static const char* rendererNames[] = { "Path Tracing" };
     
     ImGui::Spacing();

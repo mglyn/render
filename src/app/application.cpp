@@ -62,8 +62,13 @@ bool Application::initialize() {
 void Application::createScene() {
     // 加载 OBJ 模型
     MaterialPOD dragonMaterial{glm::vec3(0.7f, 0.7f, 0.9f), 0.1f}; // 淡蓝色，轻微金属感
-    if (_scene->addModelFromObj("../../model/simple_dragon.obj", dragonMaterial)) {
-        std::cout << "Successfully loaded simple_dragon.obj" << std::endl;
+    auto dragonModel = std::make_unique<Model>(dragonMaterial);
+    if (dragonModel->loadObj("../../model/simple_dragon.obj", dragonMaterial)) {
+        _scene->addModel(std::move(dragonModel), 
+            glm::vec3(0.0f, -0.5f, 0.0f), // 位置
+            glm::vec3(0.0f),              // 旋转
+            glm::vec3(2.5f));             // 缩放
+        std::cout << "Successfully loaded and added simple_dragon.obj" << std::endl;
     } else {
         std::cerr << "Failed to load simple_dragon.obj" << std::endl;
         // 如果加载失败，添加一个测试球体
@@ -135,7 +140,7 @@ void Application::render() {
     _currentRenderer->renderFrame(*_camera);
 
     // 渲染 UI
-    ui::renderUI(_nextMode);
+    ui::renderUI(_nextMode, _window->fps());
     // ui::renderBVHDebugUI(_scene.get());
 
     ui::endFrame();

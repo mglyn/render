@@ -16,10 +16,13 @@ public:
 
     // 获取场景中所有物体的只读引用
     const std::vector<Shape>& getShapes() const { return shapes_; }
-    // 添加一个模型（从外部已构建），其所有三角形转化为 Shape 存入场景
-    void addModel(std::unique_ptr<Model> model);
-    // 直接从OBJ文件创建并添加模型
-    bool addModelFromObj(const std::string &path, const MaterialPOD &mat);
+    // 添加一个模型（从外部已构建），设置其变换并添加到场景
+    void addModel(std::unique_ptr<Model> model,
+                  const glm::vec3 &pos = glm::vec3(0.0f),
+                  const glm::vec3 &rotation = glm::vec3(0.0f),
+                  const glm::vec3 &scale = glm::vec3(1.0f));
+    // 直接从OBJ文件创建模型，但不添加到场景
+    static std::unique_ptr<Model> createModelFromObj(const std::string &path, const MaterialPOD &mat);
 
     const std::vector<std::unique_ptr<Model>>& getModels() const { return models_; }
     

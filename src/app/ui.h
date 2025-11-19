@@ -11,7 +11,7 @@ void beginFrame();
 void endFrame();
 
 // 在这里添加你的UI组件声明
-void renderUI(int& rendererMode);
+void renderUI(int& rendererMode, double fps);
 void renderBVHDebugUI(const Scene* scene);
 
 } // namespace ui
