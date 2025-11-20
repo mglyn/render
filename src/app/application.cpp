@@ -127,67 +127,6 @@ bool Application::initialize() {
 }
 
 
-void Application::createScene() {
-
-    _camera->setPosition(glm::vec3(0.0f, 0.0f, 2.0f));
-    
-    auto makeWallPlane = [&](const Material& mat) {
-        auto wall = std::make_unique<Model>(mat);
-        glm::vec3 v0(0.0f, -5, -5);
-        glm::vec3 v1(0.0f, -5, 5);
-        glm::vec3 v2(0.0f, 5, 5);
-        glm::vec3 v3(0.0f, 5, -5);
-        glm::vec3 normal(1.0f, 0.0f, 0.0f); // All walls initially face inward from the side
-        glm::vec2 t0(0,0), t1(0,1), t2(1,1), t3(1,0);
-
-        wall->addTriangle({v0, v2, v1, normal, normal, normal, t0, t2, t1, mat});
-        wall->addTriangle({v0, v3, v2, normal, normal, normal, t0, t3, t2, mat});
-        return wall;
-    };
-
-    // 红左墙
-    Material redWallMat{glm::vec3(0.8f, 0.1f, 0.1f), 0.0f};
-    _scene->addModel(makeWallPlane(redWallMat), glm::vec3(-1, 0.0f, 0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
-    // 绿右墙
-    Material greenWallMat{glm::vec3(0.1f, 0.8f, 0.1f), 0.0f};
-    _scene->addModel(makeWallPlane(greenWallMat), glm::vec3(1, 0.0f, 0.0f), glm::vec3(0.0f, 180.0f, 0.0f), glm::vec3(1.0f));
-    // 背景墙
-    Material backWallMat{glm::vec3(0.4f, 0.4f, 0.45f), 0.0f};
-    _scene->addModel(makeWallPlane(backWallMat), glm::vec3(0.0f, 0.0f, -1), glm::vec3(0.0f, 90.0f, 0.0f), glm::vec3(1.0f));
-    // 地板
-    Material floorMat{glm::vec3(0.5f, 0.5f, 0.55f), 0.0f};
-    _scene->addModel(makeWallPlane(floorMat), glm::vec3(0.0f, -1, 0.0f), glm::vec3(0.0f, 0.0f, 90.0f), glm::vec3(1.0f));
-    // 天花板
-    Material ceilingMat{glm::vec3(0.35f, 0.35f, 0.4f), 0.0f};
-    _scene->addModel(makeWallPlane(ceilingMat), glm::vec3(0.0f, 1, 0.0f), glm::vec3(0.0f, 0.0f, -90.0f), glm::vec3(1.0f));
-
-    // 加载 OBJ 模型
-    Material dragonMaterial{glm::vec3(0.7f, 0.7f, 0.9f), 0.0f}; // 淡蓝色，轻微金属感
-    auto dragonModel = std::make_unique<Model>(dragonMaterial);
-    if (dragonModel->loadObj("../../model/dragon_871k.obj", dragonMaterial)) {
-        _scene->addModel(std::move(dragonModel), 
-            glm::vec3(0.0f, 0.0f, 0.0f), // 位置
-            glm::vec3(0, 90, 0),              // 旋转
-            glm::vec3(1.8f));             // 缩放
-        std::cout << "Successfully loaded and added dragon_871k.obj" << std::endl;
-    } else {
-        std::cerr << "Failed to load dragon_871k.obj" << std::endl;
-    }
-
-    // 加载光源模型
-    Material lightMaterial{glm::vec3(0.0f, 1.0f, 1.0f), 0.0f}; // 无金属感
-    auto lightModel = std::make_unique<Model>(lightMaterial, glm::vec3(30.0f, 30.0f, 30.0f)); // 强发光
-    if (lightModel->loadObj("../../model/sphere.obj", lightMaterial)) {
-        _scene->addModel(std::move(lightModel), 
-            glm::vec3(0.0f, 1.0f, 0.0f), // 位置
-            glm::vec3(0, 0, 0),              // 旋转
-            glm::vec3(0.1f));             // 缩放
-        std::cout << "Successfully loaded and added light_sphere.obj" << std::endl;
-    } else {
-        std::cerr << "Failed to load light_sphere.obj" << std::endl;
-    }
-}
-
 // void Application::createScene() {
 
 //     _camera->setPosition(glm::vec3(0.0f, 0.0f, 2.0f));
@@ -206,67 +145,149 @@ void Application::createScene() {
 //         return wall;
 //     };
 
+//     // 红左墙
+//     Material redWallMat{glm::vec3(0.8f, 0.1f, 0.1f), 0.0f};
+//     _scene->addModel(makeWallPlane(redWallMat), glm::vec3(-1, 0.0f, 0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+//     // 绿右墙
+//     Material greenWallMat{glm::vec3(0.1f, 0.8f, 0.1f), 0.0f};
+//     _scene->addModel(makeWallPlane(greenWallMat), glm::vec3(1, 0.0f, 0.0f), glm::vec3(0.0f, 180.0f, 0.0f), glm::vec3(1.0f));
+//     // 背景墙
+//     Material backWallMat{glm::vec3(0.4f, 0.4f, 0.45f), 0.0f};
+//     _scene->addModel(makeWallPlane(backWallMat), glm::vec3(0.0f, 0.0f, -1), glm::vec3(0.0f, 90.0f, 0.0f), glm::vec3(1.0f));
 //     // 地板
 //     Material floorMat{glm::vec3(0.5f, 0.5f, 0.55f), 0.0f};
 //     _scene->addModel(makeWallPlane(floorMat), glm::vec3(0.0f, -1, 0.0f), glm::vec3(0.0f, 0.0f, 90.0f), glm::vec3(1.0f));
+//     // 天花板
+//     Material ceilingMat{glm::vec3(0.35f, 0.35f, 0.4f), 0.0f};
+//     _scene->addModel(makeWallPlane(ceilingMat), glm::vec3(0.0f, 1, 0.0f), glm::vec3(0.0f, 0.0f, -90.0f), glm::vec3(1.0f));
 
-//     // 加载 OBJ 模型 - 随机散布100个龙模型
+//     // 加载 OBJ 模型
 //     Material dragonMaterial{glm::vec3(0.7f, 0.7f, 0.9f), 0.0f}; // 淡蓝色，轻微金属感
-    
-//     // 先加载一次龙模型作为模板
-//     auto dragonTemplate = std::make_unique<Model>(dragonMaterial);
-//     if (!dragonTemplate->loadObj("../../model/dragon_871k.obj", dragonMaterial)) {
-//         std::cerr << "Failed to load simple_dragon.obj template" << std::endl;
-//         return;
-//     }
-//     std::cout << "Loaded dragon template with " << dragonTemplate->triangles().size() << " triangles" << std::endl;
-    
-//     // 设置随机种子
-//     srand(static_cast<unsigned int>(time(nullptr)));
-    
-//     const int numDragons = 100;
-//     const float spreadRadius = 20.0f; // 减小散布半径，让它们更集中
-//     const float minScale = 0.5f;
-//     const float maxScale = 2.0f;
-    
-//     std::cout << "Creating " << numDragons << " dragon instances..." << std::endl;
-    
-//     for (int i = 0; i < numDragons; ++i) {
-//         // 复制龙模型
-//         auto dragonModel = std::make_unique<Model>(*dragonTemplate);
-        
-//         // 生成随机位置 - 主要分布在地面上
-//         float angle = static_cast<float>(rand()) / RAND_MAX * 2.0f * 3.14159f;
-//         float distance = static_cast<float>(rand()) / RAND_MAX * spreadRadius;
-//         float x = cos(angle) * distance;
-//         float z = sin(angle) * distance;
-//         float y = (static_cast<float>(rand()) / RAND_MAX - 0.3f) * 2.0f; // -0.6 到 1.4 的高度范围，主要在地面附近
-        
-//         // 生成随机旋转
-//         float rotX = static_cast<float>(rand()) / RAND_MAX * 360.0f;
-//         float rotY = static_cast<float>(rand()) / RAND_MAX * 360.0f;
-//         float rotZ = static_cast<float>(rand()) / RAND_MAX * 360.0f;
-        
-//         // 生成随机缩放
-//         float scale = minScale + static_cast<float>(rand()) / RAND_MAX * (maxScale - minScale);
-        
+//     auto dragonModel = std::make_unique<Model>(dragonMaterial);
+//     if (dragonModel->loadObj("../../model/dragon_871k.obj", dragonMaterial)) {
 //         _scene->addModel(std::move(dragonModel), 
-//             glm::vec3(x, y, z), // 随机位置
-//             glm::vec3(rotX, rotY, rotZ), // 随机旋转
-//             glm::vec3(scale)); // 随机缩放
-            
-//         if (i % 10 == 0) {
-//             std::cout << "Created " << (i + 1) << "/" << numDragons << " dragons..." << std::endl;
-//         }
+//             glm::vec3(0.0f, 0.0f, 0.0f), // 位置
+//             glm::vec3(0, 90, 0),              // 旋转
+//             glm::vec3(1.8f));             // 缩放
+//         std::cout << "Successfully loaded and added dragon_871k.obj" << std::endl;
+//     } else {
+//         std::cerr << "Failed to load dragon_871k.obj" << std::endl;
 //     }
-    
-//     std::cout << "Successfully created and scattered " << numDragons << " dragon models!" << std::endl;
 
-    
-
-
-
+//     // 加载光源模型
+//     Material lightMaterial{glm::vec3(0.0f, 1.0f, 1.0f), 0.0f}; // 无金属感
+//     auto lightModel = std::make_unique<Model>(lightMaterial, glm::vec3(30.0f, 30.0f, 30.0f)); // 强发光
+//     if (lightModel->loadObj("../../model/sphere.obj", lightMaterial)) {
+//         _scene->addModel(std::move(lightModel), 
+//             glm::vec3(0.0f, 1.0f, 0.0f), // 位置
+//             glm::vec3(0, 0, 0),              // 旋转
+//             glm::vec3(0.1f));             // 缩放
+//         std::cout << "Successfully loaded and added light_sphere.obj" << std::endl;
+//     } else {
+//         std::cerr << "Failed to load light_sphere.obj" << std::endl;
+//     }
 // }
+
+void Application::createScene() {
+
+    _camera->setPosition(glm::vec3(0.0f, 0.0f, 2.0f));
+    
+    auto makeWallPlane = [&](const Material& mat) {
+        auto wall = std::make_unique<Model>(mat);
+        glm::vec3 v0(0.0f, -5, -5);
+        glm::vec3 v1(0.0f, -5, 5);
+        glm::vec3 v2(0.0f, 5, 5);
+        glm::vec3 v3(0.0f, 5, -5);
+        glm::vec3 normal(1.0f, 0.0f, 0.0f); // All walls initially face inward from the side
+        glm::vec2 t0(0,0), t1(0,1), t2(1,1), t3(1,0);
+
+        wall->addTriangle({v0, v2, v1, normal, normal, normal, t0, t2, t1, mat});
+        wall->addTriangle({v0, v3, v2, normal, normal, normal, t0, t3, t2, mat});
+        return wall;
+    };
+
+    // 地板
+    Material floorMat{glm::vec3(0.5f, 0.5f, 0.55f), 0.0f};
+    _scene->addModel(makeWallPlane(floorMat), glm::vec3(0.0f, -1, 0.0f), glm::vec3(0.0f, 0.0f, 90.0f), glm::vec3(100.0f));
+
+    // 加载 OBJ 模型 - 随机散布100个龙模型
+    // 先加载一次龙模型作为模板
+    auto dragonTemplate = std::make_unique<Model>(Material{glm::vec3(0.7f, 0.7f, 0.9f), 0.0f});
+    if (!dragonTemplate->loadObj("../../model/simple_dragon.obj", Material{glm::vec3(0.7f, 0.7f, 0.9f), 0.0f})) {
+        std::cerr << "Failed to load simple_dragon.obj template" << std::endl;
+        return;
+    }
+    std::cout << "Loaded dragon template with " << dragonTemplate->triangles().size() << " triangles" << std::endl;
+    
+    // 设置随机种子
+    srand(static_cast<unsigned int>(time(nullptr)));
+    
+    const int numDragons = 100;
+    const float spreadRadius = 10.0f; // 减小散布半径，让它们更集中
+    const float minScale = 0.5f;
+    const float maxScale = 4.0f;
+    
+    std::cout << "Creating " << numDragons << " dragon instances..." << std::endl;
+    
+    for (int i = 0; i < numDragons; ++i) {
+        // 生成随机颜色
+        float r = static_cast<float>(rand()) / RAND_MAX;
+        float g = static_cast<float>(rand()) / RAND_MAX;
+        float b = static_cast<float>(rand()) / RAND_MAX;
+        glm::vec3 randomColor(r, g, b);
+        
+        // 生成随机材质
+        Material randomMaterial{randomColor, 0.0f}; // 无金属感
+        
+        // 5%概率发光
+        glm::vec3 emission(0.0f);
+        if (static_cast<float>(rand()) / RAND_MAX < 0.20f) {
+            // 随机发光颜色
+            emission = glm::vec3(
+                static_cast<float>(rand()) / RAND_MAX * 10.0f, // 强发光
+                static_cast<float>(rand()) / RAND_MAX * 10.0f,
+                static_cast<float>(rand()) / RAND_MAX * 10.0f
+            );
+        }
+        
+        // 复制龙模型并设置随机材质和发光
+        auto dragonModel = std::make_unique<Model>(randomMaterial, emission);
+        
+        // 复制几何数据
+        for (const auto& tri : dragonTemplate->triangles()) {
+            dragonModel->addTriangle(tri);
+        }
+        
+        // 设置所有三角形的随机材质
+        dragonModel->setAllTrianglesMaterial(randomMaterial);
+        
+        // 生成随机位置 - 主要分布在地面上
+        float angle = static_cast<float>(rand()) / RAND_MAX * 2.0f * 3.14159f;
+        float distance = static_cast<float>(rand()) / RAND_MAX * spreadRadius;
+        float x = cos(angle) * distance;
+        float z = sin(angle) * distance;
+        float y = (static_cast<float>(rand()) / RAND_MAX - 0.3f) * 2.0f; // -0.6 到 1.4 的高度范围，主要在地面附近
+        
+        // 生成随机旋转
+        float rotX = static_cast<float>(rand()) / RAND_MAX * 360.0f;
+        float rotY = static_cast<float>(rand()) / RAND_MAX * 360.0f;
+        float rotZ = static_cast<float>(rand()) / RAND_MAX * 360.0f;
+        
+        // 生成随机缩放
+        float scale = minScale + static_cast<float>(rand()) / RAND_MAX * (maxScale - minScale);
+        
+        _scene->addModel(std::move(dragonModel), 
+            glm::vec3(x, y, z), // 随机位置
+            glm::vec3(rotX, rotY, rotZ), // 随机旋转
+            glm::vec3(scale)); // 随机缩放
+            
+        if (i % 10 == 0) {
+            std::cout << "Created " << (i + 1) << "/" << numDragons << " dragons..." << std::endl;
+        }
+    }
+    
+    std::cout << "Successfully created and scattered " << numDragons << " dragon models!" << std::endl;
+}
 
 void Application::handleInput(float deltaTime) {
     _window->pollEvents();

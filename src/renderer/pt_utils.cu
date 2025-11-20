@@ -30,7 +30,7 @@ __device__ Ray generateCameraRay(float u, float v, const glm::vec3& cam_pos, con
 __device__ glm::vec3 environmentColor(const Ray& r) {
     glm::vec3 unit_direction = glm::normalize(r.direction());
     float t = 0.5f * (unit_direction.y + 1.0f);
-    return (1.0f - t) * glm::vec3(1.0f, 1.0f, 1.0f) + t * glm::vec3(0.5f, 0.7f, 1.0f);
+    return (1.0f - t) * glm::vec3(0.05f, 0.04f, 0.05f) + t * glm::vec3(0.1f, 0.05f, 0.1f);
 }
 
 __device__ glm::vec3 uniformSampleHemisphere(const glm::vec3& normal, curandState* seed) {
