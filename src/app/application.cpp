@@ -42,6 +42,35 @@ bool Application::initialize() {
         return false;
     }
 
+    // 创建并加载显示着色器
+    _displayShader = std::make_unique<Shader>();
+    if (!_displayShader->load("shaders/fullscreen.vert", "shaders/texture.frag")) {
+        std::cerr << "Failed to load display shader" << std::endl;
+        return false;
+    }
+
+    // 创建全屏四边形
+    float quadVertices[] = { 
+        // positions   // texCoords
+        -1.0f,  1.0f,  0.0f, 1.0f,
+        -1.0f, -1.0f,  0.0f, 0.0f,
+         1.0f, -1.0f,  1.0f, 0.0f,
+
+        -1.0f,  1.0f,  0.0f, 1.0f,
+         1.0f, -1.0f,  1.0f, 0.0f,
+         1.0f,  1.0f,  1.0f, 1.0f
+    };
+    glGenVertexArrays(1, &_quadVAO);
+    glGenBuffers(1, &_quadVBO);
+    glBindVertexArray(_quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, _quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glBindVertexArray(0);
+
     // 创建相机
     _camera = std::make_unique<Camera>(glm::vec3(0.0f, 0.0f, 0.0f));
 
@@ -73,8 +102,11 @@ void Application::createScene() {
         glm::vec3 v1(0.0f, -wallHalfHeight, wallDepth);
         glm::vec3 v2(0.0f, wallHalfHeight, wallDepth);
         glm::vec3 v3(0.0f, wallHalfHeight, -wallDepth);
-        wall->addTriangle({v0, v2, v1, mat});
-        wall->addTriangle({v0, v3, v2, mat});
+        glm::vec3 normal(1.0f, 0.0f, 0.0f); // All walls initially face inward from the side
+        glm::vec2 t0(0,0), t1(0,1), t2(1,1), t3(1,0);
+
+        wall->addTriangle({v0, v2, v1, normal, normal, normal, t0, t2, t1, mat});
+        wall->addTriangle({v0, v3, v2, normal, normal, normal, t0, t3, t2, mat});
         return wall;
     };
 
@@ -157,14 +189,35 @@ void Application::handleInput(float deltaTime) {
 
 void Application::render() {
     _window->beginFrame();
-    ui::beginFrame();
-
+    
+    // 1. 运行CUDA内核进行计算
     _currentRenderer->renderFrame(*_camera);
 
-    // 渲染 UI
-    ui::renderUI(_nextMode, _window->fps(), _pathRenderer.get());
+    // 2. 将PBO中的数据更新到纹理
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
 
+    GLuint displayPBO = _gpu->getDisplayPBO();
+    GLuint displayTex = _gpu->getDisplayTexture();
+
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, displayPBO);
+    glBindTexture(GL_TEXTURE_2D, displayTex);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+    // 3. 绘制带有该纹理的全屏四边形
+    _displayShader->use();
+    glBindVertexArray(_quadVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, displayTex);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+
+    // 4. 渲染UI
+    ui::beginFrame();
+    ui::renderUI(_nextMode, _window->fps(), _pathRenderer.get());
     ui::endFrame();
+
     _window->endFrame();
 }
 
@@ -194,6 +247,20 @@ void Application::shutdown() {
     if (_gpu) {
         _gpu->destroyPBO();
     }
+
+    // 清理显示资源
+    if (_displayShader) {
+        _displayShader.reset();
+    }
+    if (_quadVAO) {
+        glDeleteVertexArrays(1, &_quadVAO);
+        _quadVAO = 0;
+    }
+    if (_quadVBO) {
+        glDeleteBuffers(1, &_quadVBO);
+        _quadVBO = 0;
+    }
+
     ui::shutdown();
     if (_window) {
         _window.reset();

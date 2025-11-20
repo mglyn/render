@@ -14,6 +14,7 @@ add_executable(raytracer                # 定义主可执行文件raytracer
   src/main.cpp                      # 主入口
   src/app/application.cpp               # 应用程序管理
   src/renderer/path_tracer.cu                # CUDA路径追踪核
+  src/renderer/pt_utils.cu
   src/scene/camera.cpp                  # 相机实现
   src/scene/scene.cpp                   # 场景管理
   src/scene/model.cpp                   # 模型与BVH实现
@@ -24,6 +25,7 @@ add_executable(raytracer                # 定义主可执行文件raytracer
   src/app/window.cpp                    # 窗口管理
   src/renderer/cuda_path_tracing_renderer.cpp  # CUDA路径追踪渲染器
   src/app/ui.cpp                        # UI实现
+  src/app/shader.cpp                  # 新增：着色器管理
 )
 
 target_include_directories(raytracer PRIVATE 

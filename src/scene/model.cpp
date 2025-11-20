@@ -20,7 +20,13 @@ emission_(emission)
 }
 
 static Triangle makeTri(const glm::vec3 &a, const glm::vec3 &b, const glm::vec3 &c, const Material &m){
-    return {a, b, c, m};
+    // This function is now insufficient as it doesn't handle normals and texcoords.
+    // It's better to construct Triangles directly.
+    Triangle t;
+    t.v0 = a; t.v1 = b; t.v2 = c;
+    t.mat = m;
+    // Normals and texcoords will be uninitialized, must be set elsewhere.
+    return t;
 }
 
 bool Model::loadObj(const std::string &path, const Material &mat)
@@ -85,36 +91,62 @@ bool Model::loadObj(const std::string &path, const Material &mat)
                 {
                     if (!item.empty())
                     {
-                        int val = std::stoi(item) - 1;
-                        if (idx == 0)
-                            v = val;
-                        else if (idx == 1)
-                            vt = val;
-                        else if (idx == 2)
-                            vn = val;
+                        int val = std::stoi(item) - 1; // OBJ indices are 1-based
+                        if (idx == 0) v = val;
+                        else if (idx == 1) vt = val;
+                        else if (idx == 2) vn = val;
                     }
                     idx++;
                 }
                 return std::tuple<int, int, int>(v, vt, vn);
             };
-            auto getPos = [&](int i)
-            { return positions[i]; };
-            // 扇形: v0, vi, vi+1
-            int v0i;
-            {
-                auto t0 = parseIdx(verts[0]);
-                v0i = std::get<0>(t0);
-            }
+
+            auto getPos = [&](int i) { return (i >= 0 && i < positions.size()) ? positions[i] : glm::vec3(0.f); };
+            auto getNorm = [&](int i) { return (i >= 0 && i < normals.size()) ? normals[i] : glm::vec3(0.f); };
+            auto getTex = [&](int i) { return (i >= 0 && i < texcoords.size()) ? texcoords[i] : glm::vec2(0.f); };
+            
+            // Fan triangulation: v0, v_k, v_{k+1}
+            auto t0_indices = parseIdx(verts[0]);
+
             for (size_t k = 1; k + 1 < verts.size(); ++k)
             {
-                auto t1 = parseIdx(verts[k]);
-                auto t2 = parseIdx(verts[k + 1]);
-                int v1i = std::get<0>(t1);
-                int v2i = std::get<0>(t2);
-                if (v0i < 0 || v1i < 0 || v2i < 0)
-                    continue;
-                triangles_.push_back(makeTri(getPos(v0i), getPos(v1i), getPos(v2i), defaultMaterial_));
-                triMaterialIndices_.push_back(0); // 先全部指向默认材质
+                auto t1_indices = parseIdx(verts[k]);
+                auto t2_indices = parseIdx(verts[k + 1]);
+
+                int v0i = std::get<0>(t0_indices);
+                int v1i = std::get<0>(t1_indices);
+                int v2i = std::get<0>(t2_indices);
+
+                if (v0i < 0 || v1i < 0 || v2i < 0) continue;
+
+                Triangle tri;
+                tri.v0 = getPos(v0i);
+                tri.v1 = getPos(v1i);
+                tri.v2 = getPos(v2i);
+
+                int n0i = std::get<2>(t0_indices);
+                int n1i = std::get<2>(t1_indices);
+                int n2i = std::get<2>(t2_indices);
+                tri.n0 = getNorm(n0i);
+                tri.n1 = getNorm(n1i);
+                tri.n2 = getNorm(n2i);
+                // If no normals in file, compute flat normal
+                if (n0i < 0 || n1i < 0 || n2i < 0) {
+                    glm::vec3 flat_normal = glm::normalize(glm::cross(tri.v1 - tri.v0, tri.v2 - tri.v0));
+                    tri.n0 = tri.n1 = tri.n2 = flat_normal;
+                }
+
+
+                int t0i = std::get<1>(t0_indices);
+                int t1i = std::get<1>(t1_indices);
+                int t2i = std::get<1>(t2_indices);
+                tri.t0 = getTex(t0i);
+                tri.t1 = getTex(t1i);
+                tri.t2 = getTex(t2i);
+
+                tri.mat = defaultMaterial_;
+                triangles_.push_back(tri);
+                triMaterialIndices_.push_back(0);
             }
         }
     }
@@ -124,14 +156,23 @@ bool Model::loadObj(const std::string &path, const Material &mat)
     return true;
 }
 
-void Model::buildBVH(int maxLeafSize){
+void Model::buildBVH(){
+    if (triangles_.empty()) return;
+    
     std::vector<Triangle> worldTriangles = triangles_;
     for (auto& tri : worldTriangles) {
         tri.v0 = glm::vec3(modelMatrix_ * glm::vec4(tri.v0, 1.0f));
         tri.v1 = glm::vec3(modelMatrix_ * glm::vec4(tri.v1, 1.0f));
         tri.v2 = glm::vec3(modelMatrix_ * glm::vec4(tri.v2, 1.0f));
     }
-    bvh::build(bvh_, worldTriangles, triIndices_, maxLeafSize);
+    
+    // Rebuild triIndices before calling bvh::build
+    triIndices_.resize(worldTriangles.size());
+    for (size_t i = 0; i < worldTriangles.size(); ++i) {
+        triIndices_[i] = static_cast<int>(i);
+    }
+
+    bvh::build(bvh_, worldTriangles, triIndices_, 4); // Assuming maxLeafSize of 4 as a default
 }
 
 void Model::setPosition(const glm::vec3& pos) {

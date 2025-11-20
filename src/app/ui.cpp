@@ -44,38 +44,38 @@ static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
     ImGui::Separator();
 
     if (ImGui::TreeNode("Path Tracing Settings")) {
-        int spp = renderer->getSpp();
-        int maxDepth = renderer->getMaxDepth();
-        bool enableDiffuseIS = renderer->getEnableDiffuseImportanceSampling();
-        int lightingMode = static_cast<int>(renderer->getLightingMode());
+        int spp = renderer->samplesPerPixel;
+        int maxDepth = renderer->maxDepth;
+        bool enableDiffuseIS = renderer->enableDiffuseImportanceSampling;
+        int lightingMode = static_cast<int>(renderer->lightingMode);
 
         ImGui::Text("Samples Per Pixel: %d", spp);
         ImGui::SameLine();
         if (ImGui::SmallButton("-##spp")) {
             if (spp > 1) {
-                renderer->setSpp(spp - 1);
+                renderer->samplesPerPixel = spp - 1;
             }
         }
         ImGui::SameLine();
         if (ImGui::SmallButton("+##spp")) {
-            renderer->setSpp(spp + 1);
+            renderer->samplesPerPixel = spp + 1;
         }
 
         ImGui::Text("Max Depth: %d", maxDepth);
         ImGui::SameLine();
         if (ImGui::SmallButton("-##depth")) {
             if (maxDepth > 1) {
-                renderer->setMaxDepth(maxDepth - 1);
+                renderer->maxDepth = maxDepth - 1;
             }
         }
         ImGui::SameLine();
         if (ImGui::SmallButton("+##depth")) {
-            renderer->setMaxDepth(maxDepth + 1);
+            renderer->maxDepth = maxDepth + 1;
         }
 
         ImGui::Separator();
         if (ImGui::Checkbox("Enable Diffuse Importance Sampling", &enableDiffuseIS)) {
-            renderer->setEnableDiffuseImportanceSampling(enableDiffuseIS);
+            renderer->enableDiffuseImportanceSampling = enableDiffuseIS;
         }
 
         const char* lightingModeLabels[] = {
@@ -84,19 +84,19 @@ static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
             "MIS"
         };
         if (ImGui::Combo("Lighting Mode", &lightingMode, lightingModeLabels, IM_ARRAYSIZE(lightingModeLabels))) {
-            renderer->setLightingMode(static_cast<LightingMode>(lightingMode));
+            renderer->lightingMode = static_cast<LightingMode>(lightingMode);
         }
 
-        bool enableRussianRoulette = renderer->getEnableRussianRoulette();
-        int rouletteStartDepth = renderer->getRouletteStartDepth();
-        int currMaxDepth = renderer->getMaxDepth();
+        bool enableRussianRoulette = renderer->enableRussianRoulette;
+        int rouletteStartDepth = renderer->rouletteStartDepth;
+        int currMaxDepth = renderer->maxDepth;
         currMaxDepth = currMaxDepth > 1 ? currMaxDepth : 1;
         if (ImGui::TreeNodeEx("Russian Roulette", ImGuiTreeNodeFlags_DefaultOpen)) {
             if (ImGui::Checkbox("Enable Russian Roulette", &enableRussianRoulette)) {
-                renderer->setEnableRussianRoulette(enableRussianRoulette);
+                renderer->enableRussianRoulette = enableRussianRoulette;
             }
             if (ImGui::SliderInt("Start Depth", &rouletteStartDepth, 1, currMaxDepth)) {
-                renderer->setRouletteStartDepth(rouletteStartDepth);
+                renderer->rouletteStartDepth = rouletteStartDepth;
             }
             ImGui::TreePop();
         }

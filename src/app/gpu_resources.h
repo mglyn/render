@@ -15,6 +15,8 @@ public:
     void unmapWrite();
     void finalizeWrite();
     GLuint getDisplayPBO() const;
+    GLuint getDisplayTexture() const { return tex_; }
+
     GLuint getWritePBO() const { return pbo_[writeIndex_]; }
     GLuint getTexture() const { return tex_; }
 

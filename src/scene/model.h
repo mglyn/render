@@ -15,7 +15,7 @@ public:
 
     // 从 OBJ 文件加载数据（只支持 v / vn / vt / f）
     bool loadObj(const std::string &path, const Material &mat);
-    void buildBVH(int maxLeafSize = 4);
+    void buildBVH();
 
     // 设置模型变换
     void setPosition(const glm::vec3& pos);

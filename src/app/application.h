@@ -6,6 +6,7 @@
 #include "window.h"
 #include "scene/camera.h"
 #include "app/gpu_resources.h"
+#include "app/shader.h" // 新增
 #include "renderer/cuda_path_tracing_renderer.h"
 #include "scene/scene.h"
 
@@ -33,8 +34,13 @@ private:
     std::unique_ptr<Scene> _scene;
     std::unique_ptr<Camera> _camera;
 
+    // 显示渲染结果所需
+    std::unique_ptr<Shader> _displayShader;
+    GLuint _quadVAO, _quadVBO;
+
     // Renderers
     std::unique_ptr<CudaPathTracingRenderer> _pathRenderer;
+    
     CudaPathTracingRenderer* _currentRenderer = nullptr;
     int _currentMode;
     int _nextMode;

@@ -36,8 +36,8 @@ __device__ bool intersectAABB(const glm::vec3& minBounds, const glm::vec3& maxBo
     return tmax >= 0.0f;
 }
 
-    // 单个三角形求交（使用 TriangleGPU 与材质索引）
-__device__ bool intersectTriangle(const TriangleGPU& tri, const MaterialGPU* materials, const Ray& r, float tMin, float tMax, HitRecord& rec) {
+__device__ bool intersectTriangle(const TriangleGPU& tri, const Ray& r, float tMin, float tMax, HitRecord& rec) {
+    // (The existing Möller-Trumbore intersection code from intersect.cu, but without the material part)
     const glm::vec3& v0 = tri.v0;
     const glm::vec3& v1 = tri.v1;
     const glm::vec3& v2 = tri.v2;
@@ -66,14 +66,52 @@ __device__ bool intersectTriangle(const TriangleGPU& tri, const MaterialGPU* mat
     
     rec.t = t;
     rec.point = r.at(t);
-    rec.normal = glm::normalize(glm::cross(edge1, edge2));
-
-    const MaterialGPU& mat = materials[tri.materialIndex];
-    rec.albedo = mat.albedo;
-    rec.metallic = mat.metallic;
+    float w = 1.0f - u - v;
+    rec.normal = glm::normalize(w * tri.n0 + u * tri.n1 + v * tri.n2);
     rec.materialIndex = tri.materialIndex;
-    rec.emission = glm::vec3(0.0f); // 默认不发光，由 intersectModels 根据模型类型设置
     
     return true;
+}
+
+__device__ bool intersectScene(
+    const Ray& r, float tMin, float tMax, HitRecord& rec,
+    const BVHNodeGPU* bvhNodes,
+    const TriangleGPU* triangles,
+    const int* triIndices,
+    const MaterialGPU* materials
+) {
+    bool hit = false;
+    float closest_so_far = tMax;
+    int node_stack[128];
+    int stack_ptr = 0;
+    node_stack[stack_ptr++] = 0; // Start with root node
+
+    while (stack_ptr > 0) {
+        int node_idx = node_stack[--stack_ptr];
+        const BVHNodeGPU& node = bvhNodes[node_idx];
+
+        if (!intersectAABB(node.minBounds, node.maxBounds, r)) {
+            continue;
+        }
+
+        if (node.count > 0) { // Leaf node
+            for (int i = 0; i < node.count; ++i) {
+                int tri_idx = triIndices[node.start + i];
+                const TriangleGPU& tri = triangles[tri_idx];
+                HitRecord temp_rec;
+                if (intersectTriangle(tri, r, tMin, closest_so_far, temp_rec)) {
+                    hit = true;
+                    closest_so_far = temp_rec.t;
+                    rec = temp_rec;
+                    rec.primitiveIndex = tri_idx; // Store global triangle index
+                }
+            }
+        } else { // Internal node
+            // Push children to stack. Note: could be optimized by pushing farther child first
+            node_stack[stack_ptr++] = node.left;
+            node_stack[stack_ptr++] = node.right;
+        }
+    }
+    return hit;
 }
 
