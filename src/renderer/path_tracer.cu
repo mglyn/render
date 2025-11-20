@@ -126,7 +126,6 @@ __device__ glm::vec3 sampleDirectLightingContribution(
 
     // 检查可见性
     Ray shadow_ray(p + n * 0.001f, dir_to_light);
-    HitRecord shadow_rec;
     bool in_shadow = shadowIntersectScene(shadow_ray, 0.001f, sqrtf(dist_to_light_sq) - 0.002f, bvhNodes, triangles, triIndices);
 
     if (in_shadow) {
@@ -208,7 +207,6 @@ __device__ glm::vec3 traceRay(
             break; 
         }
 
-        float currBsdfPdf = 0.0f;
         bool currBounceDiffuse = false;
         float metallic = mat.metallic;
 

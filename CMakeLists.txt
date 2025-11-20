@@ -1,3 +1,4 @@
+# filepath: c:\Users\12037\Desktop\render\CMakeLists.txt
 cmake_minimum_required(VERSION 3.18)  
 project(real_time_cuda_gl LANGUAGES CXX CUDA) 
 set(CMAKE_CXX_STANDARD 20)    
@@ -30,12 +31,6 @@ target_include_directories(raytracer PRIVATE
   ${CMAKE_SOURCE_DIR}/src/bvh
   ${CMAKE_SOURCE_DIR}/src/renderer)        
 
-# =====================
-# 第三方库路径设置
-# =====================
-set(GLAD_ROOT "${CMAKE_SOURCE_DIR}/thirdParty/glad")                  # GLAD根目录
-set(GLM_ROOT "${CMAKE_SOURCE_DIR}/thirdParty/glm-0.9.9.8")           # GLM根目录
-
 # ============
 # 查找OpenGL
 # ============
@@ -57,8 +52,15 @@ add_subdirectory(thirdParty/imgui-1.92.4)
 add_subdirectory(thirdParty/rapidobj)
 
 # =============
+# GLM (源码构建)
+# =============
+add_subdirectory(thirdParty/glm)
+
+# =============
 # GLAD 头文件与源码
 # =============
+set(GLAD_ROOT "${CMAKE_SOURCE_DIR}/thirdParty/glad")                  # GLAD根目录
+
 if(EXISTS "${GLAD_ROOT}/include/glad/glad.h")
   target_include_directories(raytracer PRIVATE "${GLAD_ROOT}/include")
   if(EXISTS "${GLAD_ROOT}/src/glad.c")
@@ -68,13 +70,6 @@ if(EXISTS "${GLAD_ROOT}/include/glad/glad.h")
   endif()
 endif()
 
-# =============
-# GLM 头文件
-# =============
-if(EXISTS "${GLM_ROOT}/glm/glm.hpp")
-  target_include_directories(raytracer PRIVATE "${GLM_ROOT}")
-endif()
-
 # =====================
 # 统一库链接
 # =====================
@@ -82,6 +77,7 @@ target_link_libraries(raytracer PRIVATE
   glfw              # GLFW库 (通过add_subdirectory构建)
   OpenGL::GL        # OpenGL库
   imgui_lib         # ImGui库
+  glm               # GLM库 (通过add_subdirectory构建)
 )
 
 # =====================
@@ -106,6 +102,7 @@ if(MSVC)
     # NVCC 设备端警告屏蔽（GLM默认函数重复属性，half类型弃用警告）
     $<$<COMPILE_LANGUAGE:CUDA>:--diag-suppress=20012>
     $<$<COMPILE_LANGUAGE:CUDA>:--diag-suppress=3012>
+    $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>  # 允许GLM在CUDA设备函数中调用constexpr主机函数
   )
 endif()
 
@@ -116,7 +113,4 @@ add_custom_command(TARGET raytracer POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/src/shaders" "$<TARGET_FILE_DIR:raytracer>/shaders"
   COMMENT "拷贝shaders到输出目录")
 
-# =====================
-# 配置完成提示
-# =====================
-message(STATUS "CMake配置完成，第三方库(glfw/glad/glm)请放在thirdParty目录下。")
+message(STATUS "CMake配置完成")
