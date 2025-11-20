@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <glm/glm.hpp>
 
 Shader::Shader() : _programID(0) {}
 
@@ -80,6 +81,10 @@ bool Shader::load(const std::string& vertexPath, const std::string& fragmentPath
 
 void Shader::use() const {
     glUseProgram(_programID);
+}
+
+void Shader::setVec2(const std::string& name, const glm::vec2& value) {
+    glUniform2f(glGetUniformLocation(_programID, name.c_str()), value.x, value.y);
 }
 
 bool Shader::checkCompileErrors(GLuint shader, const std::string& type) {

@@ -15,7 +15,8 @@ public:
 
     // 从 OBJ 文件加载数据（只支持 v / vn / vt / f）
     bool loadObj(const std::string &path, const Material &mat);
-    void buildBVH();
+
+    const std::string& getName() const { return name_; }
 
     // 设置模型变换
     void setPosition(const glm::vec3& pos);
@@ -24,28 +25,27 @@ public:
     void updateModelMatrix(); // 公开此方法
     const glm::mat4& getModelMatrix() const { return modelMatrix_; }
 
+    const glm::vec3& getPosition() const { return position_; }
+    const glm::vec3& getRotation() const { return rotation_; }
+    const glm::vec3& getScale() const { return scale_; }
+
     const std::vector<Triangle>& triangles() const { return triangles_; }
     const std::vector<int>& getTriangleIndices() const { return triIndices_; }
-    const std::vector<BVHNode>& bvh() const { return bvh_; }
     const Material& material() const { return defaultMaterial_; }
-    const std::vector<Material>& materials() const { return materials_; }
-    const std::vector<int>& triangleMaterialIndices() const { return triMaterialIndices_; }
     const glm::vec3& emission() const { return emission_; }
     bool empty() const { return triangles_.empty(); }
 
     void addTriangle(const Triangle& triangle);
+    void clear();
+
+    // 材质修改方法
+    void setAllTrianglesMaterial(const Material& material);
+    void setEmission(const glm::vec3& emission);
 
 private:
-    // void updateModelMatrix(); // 移至 public
-
     std::vector<Triangle> triangles_;
     std::vector<int> triIndices_;            // 构建BVH用的索引
-    std::vector<BVHNode> bvh_;
     Material defaultMaterial_{};
-
-    // 多材质支持
-    std::vector<Material> materials_;        // 模型内所有材质表
-    std::vector<int> triMaterialIndices_;    // 每个三角形对应的材质索引
 
     // 模型变换
     glm::vec3 position_{0.0f};
@@ -55,4 +55,7 @@ private:
 
     // 发光属性
     glm::vec3 emission_{0.0f, 0.0f, 0.0f};
+
+    // 模型名称（文件路径）
+    std::string name_;
 };

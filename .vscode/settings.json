@@ -66,6 +66,9 @@
         "xtr1common": "cpp",
         "xutility": "cpp",
         "fstream": "cpp",
-        "map": "cpp"
+        "map": "cpp",
+        "deque": "cpp",
+        "stack": "cpp",
+        "xtree": "cpp"
     }
 }

@@ -19,14 +19,27 @@ public:
     void run();
     void shutdown();
 
+    Scene* getScene() { return _scene.get(); }
+    void setRenderScale(float scale);
+    
+    // Getters for UI
+    float getRenderScale() const { return _renderScale; }
+    int getRenderWidth() const { return _renderWidth; }
+    int getRenderHeight() const { return _renderHeight; }
+    int getDisplayWidth() const { return _width; }
+    int getDisplayHeight() const { return _height; }
+
 private:
     void createScene();
     void handleInput(float deltaTime);
     void render();
     void initRenderer(int mode);
+    void updateRenderResolution();
 
     // Window and graphics
-    int _width, _height;
+    int _width, _height;        // 显示分辨率
+    int _renderWidth, _renderHeight; // 渲染分辨率
+    float _renderScale;         // 渲染缩放因子 (0.1 - 1.0)
     std::unique_ptr<Window> _window;
     std::unique_ptr<GPUResources> _gpu;
 

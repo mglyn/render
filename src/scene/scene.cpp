@@ -43,13 +43,10 @@ bool Scene::buildAndUploadScene() {
         const auto& modelMatrix = model->getModelMatrix();
         const auto& normalMatrix = glm::transpose(glm::inverse(modelMatrix));
         const auto& triangles = model->triangles();
-        const auto& materials = model->materials();
-        const auto& triMatIndices = model->triangleMaterialIndices();
 
         for (size_t i = 0; i < triangles.size(); ++i) {
             const auto& tri = triangles[i];
-            int matCPUIndex = (i < triMatIndices.size()) ? triMatIndices[i] : 0;
-            const Material& mat = (matCPUIndex < materials.size()) ? materials[matCPUIndex] : Material();
+            const Material& mat = tri.mat;
 
         // Get or create material index
         int finalMaterialIndex;
@@ -189,6 +186,16 @@ void Scene::addModel(std::unique_ptr<Model> model, const glm::vec3 &pos, const g
     setDirty();
 }
 
+void Scene::removeModel(size_t index) {
+    if (index < models_.size()) {
+        models_.erase(models_.begin() + index);
+        setDirty();
+        std::cout << "[Scene] Removed model at index " << index << std::endl;
+    } else {
+        std::cerr << "[Scene] Remove model failed: invalid index " << index << std::endl;
+    }
+}
+
 std::unique_ptr<Model> Scene::createModelFromObj(const std::string &path, const Material &mat) {
     auto model = std::make_unique<Model>(mat);
     if (!model->loadObj(path, mat)) {
@@ -196,6 +203,36 @@ std::unique_ptr<Model> Scene::createModelFromObj(const std::string &path, const 
         return nullptr;
     }
     return model;
+}
+
+void Scene::addEmptyModel() {
+    auto model = std::make_unique<Model>(Material{glm::vec3(0.8f), 0.0f});
+    model->setPosition(glm::vec3(0.0f));
+    model->setRotation(glm::vec3(0.0f));
+    model->setScale(glm::vec3(1.0f));
+    model->updateModelMatrix();
+    models_.push_back(std::move(model));
+    setDirty();
+    std::cout << "[Scene] Added empty model at index " << (models_.size() - 1) << std::endl;
+}
+
+bool Scene::loadObjToModel(size_t modelIndex, const std::string &path, const Material &mat) {
+    if (modelIndex >= models_.size()) {
+        std::cerr << "[Scene] Load OBJ to model failed: invalid model index " << modelIndex << std::endl;
+        return false;
+    }
+    
+    auto& model = models_[modelIndex];
+    model->clear();
+    if (!model->loadObj(path, mat)) {
+        std::cerr << "[Scene] OBJ load failed for model " << modelIndex << ": " << path << std::endl;
+        return false;
+    }
+    
+    setDirty();
+    std::cout << "[Scene] Loaded OBJ '" << path << "' to model " << modelIndex 
+              << " (" << model->triangles().size() << " triangles)" << std::endl;
+    return true;
 }
 
 Scene::Scene() : dirty_(true) {}

@@ -22,10 +22,10 @@ public:
     const char* name() const { return "CUDA Path Tracing Renderer"; }
 
     // UI-accessible parameters
-    int maxDepth = 10;
+    int maxDepth = 4;
     int samplesPerPixel = 1;
     bool enableRussianRoulette = true;
-    int rouletteStartDepth = 3;
+    int rouletteStartDepth = 1;
     bool enableDiffuseImportanceSampling = true;
     LightingMode lightingMode = LIGHTING_MODE_MIS;
 

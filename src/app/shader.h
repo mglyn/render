@@ -3,6 +3,7 @@
 
 #include <string>
 #include <glad/glad.h>
+#include <glm/glm.hpp>
 
 class Shader {
 public:
@@ -14,6 +15,9 @@ public:
 
     // 使用着色器程序
     void use() const;
+
+    // 设置uniform变量
+    void setVec2(const std::string& name, const glm::vec2& value);
 
     // 获取着色器程序ID
     GLuint getProgramID() const { return _programID; }

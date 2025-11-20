@@ -6,36 +6,22 @@
 #include <limits>
 #include <tuple>
 
-Model::Model() {
+Model::Model() : name_("") {
     updateModelMatrix();
 }
 
 Model::Model(Material mat, glm::vec3 emission) : 
 defaultMaterial_(mat), 
-emission_(emission) 
+emission_(emission),
+name_("")
 {
-    // 单材质构造时，将默认材质加入材质表
-    materials_.push_back(defaultMaterial_);
     updateModelMatrix();
-}
-
-static Triangle makeTri(const glm::vec3 &a, const glm::vec3 &b, const glm::vec3 &c, const Material &m){
-    // This function is now insufficient as it doesn't handle normals and texcoords.
-    // It's better to construct Triangles directly.
-    Triangle t;
-    t.v0 = a; t.v1 = b; t.v2 = c;
-    t.mat = m;
-    // Normals and texcoords will be uninitialized, must be set elsewhere.
-    return t;
 }
 
 bool Model::loadObj(const std::string &path, const Material &mat)
 {
+    name_ = path; // 设置模型名称为文件路径
     defaultMaterial_ = mat;
-    materials_.clear();
-    triMaterialIndices_.clear();
-    // 目前先简单地将传入材质作为唯一材质，所有三角形使用 index 0
-    materials_.push_back(defaultMaterial_);
     std::ifstream ifs(path);
     if (!ifs.is_open())
         return false;
@@ -146,7 +132,6 @@ bool Model::loadObj(const std::string &path, const Material &mat)
 
                 tri.mat = defaultMaterial_;
                 triangles_.push_back(tri);
-                triMaterialIndices_.push_back(0);
             }
         }
     }
@@ -154,25 +139,6 @@ bool Model::loadObj(const std::string &path, const Material &mat)
     for (size_t i = 0; i < triangles_.size(); ++i)
         triIndices_[i] = static_cast<int>(i);
     return true;
-}
-
-void Model::buildBVH(){
-    if (triangles_.empty()) return;
-    
-    std::vector<Triangle> worldTriangles = triangles_;
-    for (auto& tri : worldTriangles) {
-        tri.v0 = glm::vec3(modelMatrix_ * glm::vec4(tri.v0, 1.0f));
-        tri.v1 = glm::vec3(modelMatrix_ * glm::vec4(tri.v1, 1.0f));
-        tri.v2 = glm::vec3(modelMatrix_ * glm::vec4(tri.v2, 1.0f));
-    }
-    
-    // Rebuild triIndices before calling bvh::build
-    triIndices_.resize(worldTriangles.size());
-    for (size_t i = 0; i < worldTriangles.size(); ++i) {
-        triIndices_[i] = static_cast<int>(i);
-    }
-
-    bvh::build(bvh_, worldTriangles, triIndices_, 4); // Assuming maxLeafSize of 4 as a default
 }
 
 void Model::setPosition(const glm::vec3& pos) {
@@ -199,10 +165,32 @@ void Model::updateModelMatrix() {
 void Model::addTriangle(const Triangle& triangle) {
     triangles_.push_back(triangle);
     triIndices_.push_back(static_cast<int>(triangles_.size() - 1));
-    triMaterialIndices_.push_back(0);
-    if (materials_.empty()) {
-        materials_.push_back(defaultMaterial_);
+}
+
+void Model::setAllTrianglesMaterial(const Material& material) {
+    for (auto& triangle : triangles_) {
+        triangle.mat = material;
     }
+    defaultMaterial_ = material;
+}
+
+void Model::setEmission(const glm::vec3& emission) {
+    emission_ = emission;
+}
+
+void Model::clear(){
+    triangles_.clear();
+    triIndices_.clear();
+    defaultMaterial_ = Material();
+    
+    position_ = glm::vec3(0.0f);
+    rotation_ = glm::vec3(0.0f); 
+    scale_ = glm::vec3(1.0f);
+    modelMatrix_ = glm::mat4(1.0f);
+
+    emission_ = glm::vec3(0.0f, 0.0f, 0.0f);
+
+    name_.clear();
 }
 
 

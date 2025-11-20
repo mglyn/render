@@ -1,5 +1,4 @@
-#ifndef PT_UTILS_H
-#define PT_UTILS_H
+#pragma once
 
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
@@ -31,6 +30,14 @@ __device__ glm::vec3 cosineSampleHemisphere(const glm::vec3& normal, curandState
 __device__ float bsdfPdf(bool useCosineSampling, float cosTheta);
 __device__ float powerHeuristic(float pdfA, float pdfB);
 
+// PBR functions
+__device__ glm::vec3 fresnelSchlick(float cosTheta, const glm::vec3& F0);
+__device__ float ggxDistribution(float NdotH, float roughness);
+__device__ float smithG1(float NdotV, float roughness);
+__device__ float smithGeometry(float NdotV, float NdotL, float roughness);
+__device__ glm::vec3 sampleGGX(const glm::vec3& n, float roughness, curandState* seed, glm::vec3& H, float& pdf);
+__device__ float getRoughnessFromMetallic(float metallic);
+
 // Scene intersection
 __device__ bool intersectScene(
     const Ray& r, float tMin, float tMax, HitRecord& rec,
@@ -39,5 +46,3 @@ __device__ bool intersectScene(
     const int* triIndices,
     const MaterialGpu* materials
 );
-
-#endif // PT_UTILS_H

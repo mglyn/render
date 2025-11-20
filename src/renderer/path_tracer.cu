@@ -212,26 +212,93 @@ __device__ glm::vec3 traceRay(
         bool currBounceDiffuse = false;
         float metallic = mat.metallic;
 
+        // 计算基础反射率 F0
+        glm::vec3 F0 = glm::mix(glm::vec3(0.04f), mat.albedo, metallic);
+
         glm::vec3 directLighting(0.0f);
-        if (metallic < 1.0f && lightingMode != LIGHTING_MODE_INDIRECT) {
-             directLighting = sampleDirectLightingContribution(
-                triangles, triangleCount, lightIndices, lightCount, seed,
-                rec.point, rec.normal, mat.albedo / kPi, throughput, (1.0f - metallic),
-                enableDiffuseImportanceSampling, lightingMode,
-                bvhNodes, triIndices, materials
-            );
+        if (lightingMode != LIGHTING_MODE_INDIRECT) {
+            // 漫反射部分
+            if (metallic < 1.0f) {
+                glm::vec3 diffuseBrdf = mat.albedo / kPi * (1.0f - metallic);
+                directLighting += sampleDirectLightingContribution(
+                    triangles, triangleCount, lightIndices, lightCount, seed,
+                    rec.point, rec.normal, diffuseBrdf, throughput, 1.0f,
+                    enableDiffuseImportanceSampling, lightingMode,
+                    bvhNodes, triIndices, materials
+                );
+            }
+            // 镜面反射部分：简化，仅在直接光照时近似
+            if (metallic > 0.0f) {
+                glm::vec3 specularBrdf = F0;
+                directLighting += sampleDirectLightingContribution(
+                    triangles, triangleCount, lightIndices, lightCount, seed,
+                    rec.point, rec.normal, specularBrdf, throughput, metallic,
+                    false, lightingMode,
+                    bvhNodes, triIndices, materials
+                );
+            }
         }
         radiance += directLighting;
 
         if (lightingMode != LIGHTING_MODE_DIRECT) {
-            glm::vec3 bounceDir = 
-                enableDiffuseImportanceSampling ? 
-                cosineSampleHemisphere(rec.normal, seed) : 
-                uniformSampleHemisphere(rec.normal, seed);
-            throughput *= mat.albedo; // 简化
+            // 根据 metallic 混合反射方向
+            glm::vec3 bounceDir;
+            glm::vec3 nextBrdf;
+            float pdf;
+
+            if (curand_uniform(seed) < metallic) {
+                // 镜面反射采样（使用 GGX）
+                float roughness = getRoughnessFromMetallic(metallic);
+                glm::vec3 H;
+                float pdfH;
+                H = sampleGGX(rec.normal, roughness, seed, H, pdfH);
+                bounceDir = glm::reflect(r.direction(), H);
+                
+                // 确保在表面之上
+                if (glm::dot(bounceDir, rec.normal) < 1e-6f) {
+                    bounceDir = glm::reflect(r.direction(), rec.normal);
+                }
+                
+                float NoV = fmaxf(0.0f, glm::dot(rec.normal, -r.direction()));
+                float NoL = fmaxf(0.0f, glm::dot(rec.normal, bounceDir));
+                float NoH = fmaxf(0.0f, glm::dot(rec.normal, H));
+                float VoH = fmaxf(0.0f, glm::dot(-r.direction(), H));
+
+                if (NoL > 1e-6f && NoV > 1e-6f && NoH > 1e-6f && VoH > 1e-6f) {
+                    float D = ggxDistribution(NoH, roughness);
+                    float G = smithGeometry(NoV, NoL, roughness);
+                    glm::vec3 F = fresnelSchlick(VoH, F0);
+                    glm::vec3 spec = (D * G * F) / (4.0f * NoV * NoL);
+                    nextBrdf = spec;
+                    pdf = pdfH / (4.0f * VoH + 1e-6f);
+                } else {
+                    nextBrdf = glm::vec3(0.0f);
+                    pdf = 1e-6f;
+                }
+                currBounceDiffuse = false;
+            } else {
+                // 漫反射采样
+                bounceDir = enableDiffuseImportanceSampling ? 
+                    cosineSampleHemisphere(rec.normal, seed) : 
+                    uniformSampleHemisphere(rec.normal, seed);
+                
+                float cosTheta = fmaxf(0.0f, glm::dot(rec.normal, bounceDir));
+                pdf = bsdfPdf(enableDiffuseImportanceSampling, cosTheta);
+                
+                glm::vec3 diffuse = mat.albedo / kPi * (1.0f - metallic);
+                nextBrdf = diffuse * cosTheta;
+                currBounceDiffuse = true;
+            }
+
+            // 更新 throughput
+            if (pdf > 1e-6f) {
+                throughput *= nextBrdf / pdf;
+            } else {
+                throughput = glm::vec3(0.0f);
+            }
+
             r = Ray(rec.point + rec.normal * 0.001f, bounceDir);
-            prevBsdfPdf = bsdfPdf(true, fmaxf(0.0f, glm::dot(rec.normal, bounceDir)));
-            prevBounceDiffuse = true;
+            prevBsdfPdf = pdf;
         } else {
             break; // 直接光照模式下不再反弹
         }

@@ -17,6 +17,11 @@ public:
 
     void addModel(std::unique_ptr<Model> model, const glm::vec3 &pos, const glm::vec3 &rotation, const glm::vec3 &scale);
     static std::unique_ptr<Model> createModelFromObj(const std::string &path, const Material &mat);
+    void removeModel(size_t index);
+    void addEmptyModel();
+    bool loadObjToModel(size_t modelIndex, const std::string &path, const Material &mat = Material{glm::vec3(0.8f), 0.0f});
+
+    const std::vector<std::unique_ptr<Model>>& getModels() const { return models_; }
 
     bool isDirty() const { return dirty_; }
     void setDirty(bool dirty = true) { dirty_ = dirty; }

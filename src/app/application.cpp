@@ -5,8 +5,42 @@
 #include <glm/glm.hpp>
 
 Application::Application(int width, int height)
-    : _width(width), _height(height), _currentRenderer(nullptr),
-      _currentMode(0), _nextMode(0), _isRunning(false) {}
+    : _width(width), _height(height), 
+      _renderScale(0.5f), // 默认1/2分辨率
+      _currentRenderer(nullptr),
+      _currentMode(0), _nextMode(0), _isRunning(false) {
+    updateRenderResolution();
+}
+
+void Application::updateRenderResolution() {
+    _renderWidth = static_cast<int>(_width * _renderScale);
+    _renderHeight = static_cast<int>(_height * _renderScale);
+    
+    // 确保最小分辨率
+    _renderWidth = std::max(_renderWidth, 64);
+    _renderHeight = std::max(_renderHeight, 64);
+}
+
+void Application::setRenderScale(float scale) {
+    _renderScale = glm::clamp(scale, 0.1f, 1.0f);
+    updateRenderResolution();
+    
+    // 重新初始化GPU资源和渲染器
+    if (_gpu) {
+        _gpu->destroyPBO();
+        if (!_gpu->createTriplePBO(_renderWidth, _renderHeight)) {
+            std::cerr << "Failed to recreate GPU resources with new resolution" << std::endl;
+            return;
+        }
+    }
+    
+    if (_currentRenderer) {
+        _currentRenderer->destroy();
+        if (!_currentRenderer->init(_renderWidth, _renderHeight, _gpu.get(), _scene.get())) {
+            std::cerr << "Failed to reinitialize renderer with new resolution" << std::endl;
+        }
+    }
+}
 
 Application::~Application() {
     shutdown();
@@ -37,7 +71,7 @@ bool Application::initialize() {
 
     // 创建 GPU 资源
     _gpu = std::make_unique<GPUResources>();
-    if (!_gpu->createTriplePBO(_width, _height)) {
+    if (!_gpu->createTriplePBO(_renderWidth, _renderHeight)) {
         std::cerr << "Failed to create GPU resources (triple PBO)" << std::endl;
         return false;
     }
@@ -81,7 +115,7 @@ bool Application::initialize() {
     // 初始化渲染器
     _pathRenderer = std::make_unique<CudaPathTracingRenderer>();
     _currentRenderer = _pathRenderer.get();
-    if (!_currentRenderer->init(_width, _height, _gpu.get(), _scene.get())) {
+    if (!_currentRenderer->init(_renderWidth, _renderHeight, _gpu.get(), _scene.get())) {
         std::cerr << "Renderer init failed: " << _currentRenderer->name() << std::endl;
     }
 
@@ -93,15 +127,12 @@ void Application::createScene() {
 
     _camera->setPosition(glm::vec3(0.0f, 0.0f, 2.0f));
     
-    const float wallDistance = 1.6f;
-    const float wallHalfHeight = 1.5f;
-    const float wallDepth = 2.0f;
     auto makeWallPlane = [&](const Material& mat) {
         auto wall = std::make_unique<Model>(mat);
-        glm::vec3 v0(0.0f, -wallHalfHeight, -wallDepth);
-        glm::vec3 v1(0.0f, -wallHalfHeight, wallDepth);
-        glm::vec3 v2(0.0f, wallHalfHeight, wallDepth);
-        glm::vec3 v3(0.0f, wallHalfHeight, -wallDepth);
+        glm::vec3 v0(0.0f, -5, -5);
+        glm::vec3 v1(0.0f, -5, 5);
+        glm::vec3 v2(0.0f, 5, 5);
+        glm::vec3 v3(0.0f, 5, -5);
         glm::vec3 normal(1.0f, 0.0f, 0.0f); // All walls initially face inward from the side
         glm::vec2 t0(0,0), t1(0,1), t2(1,1), t3(1,0);
 
@@ -110,28 +141,21 @@ void Application::createScene() {
         return wall;
     };
 
-    // 红/绿左右墙
+    // 红左墙
     Material redWallMat{glm::vec3(0.8f, 0.1f, 0.1f), 0.0f};
-    _scene->addModel(makeWallPlane(redWallMat), glm::vec3(-wallDistance, 0.0f, 0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+    _scene->addModel(makeWallPlane(redWallMat), glm::vec3(-1, 0.0f, 0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+    // 绿右墙
     Material greenWallMat{glm::vec3(0.1f, 0.8f, 0.1f), 0.0f};
-    auto greenWall = makeWallPlane(greenWallMat);
-    _scene->addModel(std::move(greenWall), glm::vec3(wallDistance, 0.0f, 0.0f), glm::vec3(0.0f, 180.0f, 0.0f), glm::vec3(1.0f));
-
+    _scene->addModel(makeWallPlane(greenWallMat), glm::vec3(1, 0.0f, 0.0f), glm::vec3(0.0f, 180.0f, 0.0f), glm::vec3(1.0f));
     // 背景墙
     Material backWallMat{glm::vec3(0.4f, 0.4f, 0.45f), 0.0f};
-    auto backWall = makeWallPlane(backWallMat);
-    _scene->addModel(std::move(backWall), glm::vec3(0.0f, 0.0f, -wallDepth), glm::vec3(0.0f, 90.0f, 0.0f), glm::vec3(1.0f));
-
+    _scene->addModel(makeWallPlane(backWallMat), glm::vec3(0.0f, 0.0f, -1), glm::vec3(0.0f, 90.0f, 0.0f), glm::vec3(1.0f));
     // 地板
     Material floorMat{glm::vec3(0.5f, 0.5f, 0.55f), 0.0f};
-    auto floor = makeWallPlane(floorMat);
-    _scene->addModel(std::move(floor), glm::vec3(0.0f, -wallHalfHeight, 0.0f), glm::vec3(0.0f, 0.0f, 90.0f), glm::vec3(1.0f));
-
+    _scene->addModel(makeWallPlane(floorMat), glm::vec3(0.0f, -1, 0.0f), glm::vec3(0.0f, 0.0f, 90.0f), glm::vec3(1.0f));
     // 天花板
     Material ceilingMat{glm::vec3(0.35f, 0.35f, 0.4f), 0.0f};
-    auto ceiling = makeWallPlane(ceilingMat);
-    _scene->addModel(std::move(ceiling), glm::vec3(0.0f, wallHalfHeight, 0.0f), glm::vec3(0.0f, 0.0f, -90.0f), glm::vec3(1.0f));
-
+    _scene->addModel(makeWallPlane(ceilingMat), glm::vec3(0.0f, 1, 0.0f), glm::vec3(0.0f, 0.0f, -90.0f), glm::vec3(1.0f));
 
     // 加载 OBJ 模型
     Material dragonMaterial{glm::vec3(0.7f, 0.7f, 0.9f), 0.0f}; // 淡蓝色，轻微金属感
@@ -148,7 +172,7 @@ void Application::createScene() {
 
     // 加载光源模型
     Material lightMaterial{glm::vec3(0.0f, 1.0f, 1.0f), 0.0f}; // 无金属感
-    auto lightModel = std::make_unique<Model>(lightMaterial, glm::vec3(15.0f, 15.0f, 15.0f)); // 强发光
+    auto lightModel = std::make_unique<Model>(lightMaterial, glm::vec3(30.0f, 30.0f, 30.0f)); // 强发光
     if (lightModel->loadObj("../../model/sphere.obj", lightMaterial)) {
         _scene->addModel(std::move(lightModel), 
             glm::vec3(0.0f, 1.0f, 0.0f), // 位置
@@ -202,7 +226,7 @@ void Application::render() {
 
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, displayPBO);
     glBindTexture(GL_TEXTURE_2D, displayTex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, _renderWidth, _renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
     // 3. 绘制带有该纹理的全屏四边形
@@ -215,7 +239,7 @@ void Application::render() {
 
     // 4. 渲染UI
     ui::beginFrame();
-    ui::renderUI(_nextMode, _window->fps(), _pathRenderer.get(), *_camera);
+    ui::renderUI(_nextMode, _window->fps(), _pathRenderer.get(), *_camera, _scene.get(), this);
     ui::endFrame();
 
     _window->endFrame();
@@ -226,7 +250,7 @@ void Application::initRenderer(int mode) {
         _currentRenderer->destroy();
     }
     _currentRenderer = _pathRenderer.get();
-    if (!_currentRenderer->init(_width, _height, _gpu.get(), _scene.get())) {
+    if (!_currentRenderer->init(_renderWidth, _renderHeight, _gpu.get(), _scene.get())) {
         std::cerr << "Renderer init failed: " << _currentRenderer->name() << std::endl;
     }
 }
