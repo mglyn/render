@@ -31,7 +31,7 @@ void CudaPathTracingRenderer::renderFrame(Camera& camera) {
         cudaMemset(_d_accumulated_radiance, 0, _width * _height * sizeof(glm::vec3));
         camera.clearDirty();
         
-        // If scene is dirty, rebuild and re-upload all data
+        // If scene is dirty, rebuild and upload all data
         if (_scene->isDirty()) {
             _scene->buildAndUploadScene();
         }
@@ -51,7 +51,7 @@ void CudaPathTracingRenderer::launchKernel(const Camera& camera) {
 
     // Get scene data from the scene object
     const TriangleGPU* triangles = _scene->getTrianglesGPU();
-    const MaterialGPU* materials = _scene->getMaterialsGPU();
+    const MaterialGpu* materials = _scene->getMaterialsGPU();
     const BVHNodeGPU* bvhNodes = _scene->getBvhNodesGPU();
     const int* triIndices = _scene->getTriangleIndicesGPU();
     const int* lightIndices = _scene->getLightIndicesGPU();

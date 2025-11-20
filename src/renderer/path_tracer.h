@@ -6,7 +6,7 @@
 #include "renderer/pt_utils.h"
 
 struct TriangleGPU;
-struct MaterialGPU;
+struct MaterialGpu;
 struct BVHNodeGPU;
 
 void kernel_path_tracer(
@@ -14,7 +14,7 @@ void kernel_path_tracer(
     const glm::vec3& cam_pos, const glm::mat4& cam_view, float cam_fov,
     glm::vec3* accumulated_radiance, uint32_t frame_count,
     const TriangleGPU* triangles, int triangle_count,
-    const MaterialGPU* materials,
+    const MaterialGpu* materials,
     const BVHNodeGPU* bvh_nodes,
     const int* tri_indices,
     const int* light_indices, int light_count,

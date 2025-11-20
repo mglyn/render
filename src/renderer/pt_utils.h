@@ -20,7 +20,7 @@ enum LightingMode {
 struct HitRecord;
 struct TriangleGPU;
 struct BVHNodeGPU;
-struct MaterialGPU;
+struct MaterialGpu;
 
 // Device utility functions
 __device__ void writePixel(uint8_t* pbo_ptr, int width, int x, int y, const glm::vec3& color);
@@ -37,7 +37,7 @@ __device__ bool intersectScene(
     const BVHNodeGPU* bvhNodes,
     const TriangleGPU* triangles,
     const int* triIndices,
-    const MaterialGPU* materials
+    const MaterialGpu* materials
 );
 
 #endif // PT_UTILS_H

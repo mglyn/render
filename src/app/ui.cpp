@@ -1,5 +1,6 @@
 #include "ui.h"
 #include "renderer/cuda_path_tracing_renderer.h"
+#include "scene/camera.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -38,7 +39,7 @@ void endFrame() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
+static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer, Camera& camera) {
     if (!renderer) return;
 
     ImGui::Separator();
@@ -54,11 +55,13 @@ static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
         if (ImGui::SmallButton("-##spp")) {
             if (spp > 1) {
                 renderer->samplesPerPixel = spp - 1;
+                camera.markDirty();
             }
         }
         ImGui::SameLine();
         if (ImGui::SmallButton("+##spp")) {
             renderer->samplesPerPixel = spp + 1;
+            camera.markDirty();
         }
 
         ImGui::Text("Max Depth: %d", maxDepth);
@@ -66,16 +69,19 @@ static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
         if (ImGui::SmallButton("-##depth")) {
             if (maxDepth > 1) {
                 renderer->maxDepth = maxDepth - 1;
+                camera.markDirty();
             }
         }
         ImGui::SameLine();
         if (ImGui::SmallButton("+##depth")) {
             renderer->maxDepth = maxDepth + 1;
+            camera.markDirty();
         }
 
         ImGui::Separator();
         if (ImGui::Checkbox("Enable Diffuse Importance Sampling", &enableDiffuseIS)) {
             renderer->enableDiffuseImportanceSampling = enableDiffuseIS;
+            camera.markDirty();
         }
 
         const char* lightingModeLabels[] = {
@@ -85,6 +91,7 @@ static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
         };
         if (ImGui::Combo("Lighting Mode", &lightingMode, lightingModeLabels, IM_ARRAYSIZE(lightingModeLabels))) {
             renderer->lightingMode = static_cast<LightingMode>(lightingMode);
+            camera.markDirty();
         }
 
         bool enableRussianRoulette = renderer->enableRussianRoulette;
@@ -94,9 +101,11 @@ static void renderPathTracingSubmenu(CudaPathTracingRenderer* renderer) {
         if (ImGui::TreeNodeEx("Russian Roulette", ImGuiTreeNodeFlags_DefaultOpen)) {
             if (ImGui::Checkbox("Enable Russian Roulette", &enableRussianRoulette)) {
                 renderer->enableRussianRoulette = enableRussianRoulette;
+                camera.markDirty();
             }
             if (ImGui::SliderInt("Start Depth", &rouletteStartDepth, 1, currMaxDepth)) {
                 renderer->rouletteStartDepth = rouletteStartDepth;
+                camera.markDirty();
             }
             ImGui::TreePop();
         }
@@ -115,12 +124,12 @@ static void renderControlsSubmenu() {
     }
 }
 
-void renderUI(int& rendererMode, double fps, CudaPathTracingRenderer* renderer) {
+void renderUI(int& rendererMode, double fps, CudaPathTracingRenderer* renderer, Camera& camera) {
     ImGui::Begin("Renderer Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
     
     ImGui::Text("FPS: %.1f", fps);
 
-    renderPathTracingSubmenu(renderer);
+    renderPathTracingSubmenu(renderer, camera);
 
     static const char* rendererNames[] = { "Path Tracing" };
     (void)rendererNames; // currently unused

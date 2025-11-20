@@ -215,7 +215,7 @@ void Application::render() {
 
     // 4. 渲染UI
     ui::beginFrame();
-    ui::renderUI(_nextMode, _window->fps(), _pathRenderer.get());
+    ui::renderUI(_nextMode, _window->fps(), _pathRenderer.get(), *_camera);
     ui::endFrame();
 
     _window->endFrame();

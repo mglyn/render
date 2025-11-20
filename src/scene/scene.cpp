@@ -5,8 +5,8 @@
 #include <map>
 
 // Helper to convert CPU material to GPU material
-static MaterialGPU toMaterialGPU(const Material& mat) {
-    MaterialGPU gpuMat;
+static MaterialGpu toMaterialGpu(const Material& mat) {
+    MaterialGpu gpuMat;
     gpuMat.albedo = mat.albedo;
     gpuMat.metallic = mat.metallic;
     // gpuMat.emission = mat.emission; // Assuming emission is handled separately or part of Material
@@ -56,7 +56,7 @@ bool Scene::buildAndUploadScene() {
         if (materialMap.find(mat) == materialMap.end()) {
             finalMaterialIndex = materialCounter++;
             materialMap[mat] = finalMaterialIndex;
-            host_materials_.push_back(toMaterialGPU(mat));
+            host_materials_.push_back(toMaterialGpu(mat));
             host_materials_.back().emission = model->emission(); // Set emission for the whole model's materials
         } else {
             finalMaterialIndex = materialMap[mat];
@@ -119,9 +119,9 @@ bool Scene::buildAndUploadScene() {
     }
 
     if (!host_materials_.empty()) {
-        err = cudaMalloc(&d_materials_, host_materials_.size() * sizeof(MaterialGPU));
+        err = cudaMalloc(&d_materials_, host_materials_.size() * sizeof(MaterialGpu));
         if (err != cudaSuccess) return false;
-        err = cudaMemcpy(d_materials_, host_materials_.data(), host_materials_.size() * sizeof(MaterialGPU), cudaMemcpyHostToDevice);
+        err = cudaMemcpy(d_materials_, host_materials_.data(), host_materials_.size() * sizeof(MaterialGpu), cudaMemcpyHostToDevice);
         if (err != cudaSuccess) { std::cerr << "  - Material upload failed: " << cudaGetErrorString(err) << std::endl; return false; }
     }
 

@@ -1,13 +1,10 @@
-#ifndef MATERIAL_GPU_H
-#define MATERIAL_GPU_H
+#pragma once
 
 #include <glm/glm.hpp>
 
 struct MaterialGpu {
     glm::vec3 albedo;
-    glm::vec3 emission;
     float metallic;
+    glm::vec3 emission;
     float roughness;
 };
-
-#endif // MATERIAL_GPU_H

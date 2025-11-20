@@ -7,12 +7,12 @@
 #include "struct/materialGpu.h"
 #include <curand_kernel.h>
 
-// Forward declaration
+// 前向声明
 __device__ glm::vec3 traceRay(
     Ray r,
     curandState* seed,
     const TriangleGPU* triangles, int triangleCount,
-    const MaterialGPU* materials,
+    const MaterialGpu* materials,
     const BVHNodeGPU* bvhNodes,
     const int* triIndices,
     const int* lightIndices, int lightCount,
@@ -20,13 +20,13 @@ __device__ glm::vec3 traceRay(
     bool enableDiffuseImportanceSampling, LightingMode lightingMode
 );
 
-// Main kernel
+// 主内核
 extern "C" __global__ void kernel_path_tracer_impl(
     uint8_t* pbo_ptr, int width, int height,
     glm::vec3 cam_pos, glm::mat4 cam_view, float cam_fov,
     glm::vec3* accumulated_radiance, uint32_t frame_count,
     const TriangleGPU* triangles, int triangle_count,
-    const MaterialGPU* materials,
+    const MaterialGpu* materials,
     const BVHNodeGPU* bvh_nodes,
     const int* tri_indices,
     const int* light_indices, int light_count,
@@ -58,13 +58,13 @@ extern "C" __global__ void kernel_path_tracer_impl(
     writePixel(pbo_ptr, width, x, y, final_radiance);
 }
 
-// Wrapper function to satisfy the header
+// 包装函数以满足头文件
 void kernel_path_tracer(
     uint8_t* pbo_ptr, int width, int height,
     const glm::vec3& cam_pos, const glm::mat4& cam_view, float cam_fov,
     glm::vec3* accumulated_radiance, uint32_t frame_count,
     const TriangleGPU* triangles, int triangle_count,
-    const MaterialGPU* materials,
+    const MaterialGpu* materials,
     const BVHNodeGPU* bvh_nodes,
     const int* tri_indices,
     const int* light_indices, int light_count,
@@ -105,15 +105,15 @@ __device__ glm::vec3 sampleDirectLightingContribution(
     const glm::vec3& p, const glm::vec3& n, const glm::vec3& brdf,
     const glm::vec3& throughput, float baseWeight,
     bool enableDiffuseIS, LightingMode lightingMode,
-    const BVHNodeGPU* bvhNodes, const int* triIndices, const MaterialGPU* materials)
+    const BVHNodeGPU* bvhNodes, const int* triIndices, const MaterialGpu* materials)
 {
     if (lightCount == 0) return glm::vec3(0.0f);
 
-    // Sample a light source
+    // 采样光源
     int light_idx = int(curand_uniform(seed) * lightCount);
     const TriangleGPU& light_tri = triangles[lightIndices[light_idx]];
 
-    // Sample a point on the light
+    // 在光源上采样一个点
     float r1 = curand_uniform(seed);
     float r2 = curand_uniform(seed);
     if (r1 + r2 > 1.0f) { r1 = 1.0f - r1; r2 = 1.0f - r2; }
@@ -124,16 +124,16 @@ __device__ glm::vec3 sampleDirectLightingContribution(
     float dist_to_light_sq = glm::dot(to_light, to_light);
     glm::vec3 dir_to_light = glm::normalize(to_light);
 
-    // Check for visibility
+    // 检查可见性
     Ray shadow_ray(p + n * 0.001f, dir_to_light);
     HitRecord shadow_rec;
-    bool in_shadow = intersectScene(shadow_ray, 0.001f, sqrtf(dist_to_light_sq) - 0.002f, shadow_rec, bvhNodes, triangles, triIndices, materials);
+    bool in_shadow = shadowIntersectScene(shadow_ray, 0.001f, sqrtf(dist_to_light_sq) - 0.002f, bvhNodes, triangles, triIndices);
 
     if (in_shadow) {
         return glm::vec3(0.0f);
     }
 
-    // Calculate PDF and contribution
+    // 计算 PDF 和贡献
     float light_area = 0.5f * glm::length(glm::cross(light_tri.v1 - light_tri.v0, light_tri.v2 - light_tri.v0));
     float pdf_light = dist_to_light_sq / (fabsf(glm::dot(light_n, -dir_to_light)) * light_area * lightCount);
     
@@ -142,14 +142,14 @@ __device__ glm::vec3 sampleDirectLightingContribution(
         return glm::vec3(0.0f);
     }
 
-    const MaterialGPU& light_mat = materials[light_tri.materialIndex];
+    const MaterialGpu& light_mat = materials[light_tri.materialIndex];
     glm::vec3 emission = light_mat.emission;
 
     if (lightingMode == LIGHTING_MODE_MIS) {
         float pdf_bsdf = bsdfPdf(enableDiffuseIS, cos_theta_surf);
         float weight = powerHeuristic(pdf_light, pdf_bsdf);
         return (brdf * emission * cos_theta_surf / pdf_light) * weight * baseWeight;
-    } else { // Direct or Indirect
+    } else { // 直接或间接
         return (brdf * emission * cos_theta_surf / pdf_light) * baseWeight;
     }
 }
@@ -159,7 +159,7 @@ __device__ glm::vec3 traceRay(
     Ray r,
     curandState* seed,
     const TriangleGPU* triangles, int triangleCount,
-    const MaterialGPU* materials,
+    const MaterialGpu* materials,
     const BVHNodeGPU* bvhNodes,
     const int* triIndices,
     const int* lightIndices, int lightCount,
@@ -184,15 +184,15 @@ __device__ glm::vec3 traceRay(
             break;
         }
         
-        const MaterialGPU& mat = materials[rec.materialIndex];
+        const MaterialGpu& mat = materials[rec.materialIndex];
 
         if (glm::dot(mat.emission, mat.emission) > 0.0f) {
             float weight = 1.0f;
             if (lightingMode == LIGHTING_MODE_MIS && prevBounceDiffuse && prevBsdfPdf > 0.0f) {
-                // Find which light triangle we hit
+                // 找到击中的光源三角形
                 int lightTriIndex = -1;
                 for(int i=0; i<lightCount; ++i) {
-                    if(lightIndices[i] == rec.primitiveIndex) { // primitiveIndex should be the global triangle index
+                    if(lightIndices[i] == rec.primitiveIndex) { // primitiveIndex 应该是全局三角形索引
                         lightTriIndex = i;
                         break;
                     }
@@ -205,15 +205,13 @@ __device__ glm::vec3 traceRay(
                 }
             }
             radiance += throughput * mat.emission * weight;
-            // break; // DO NOT break here. Allow NEE to happen even if we hit a light.
+            break; 
         }
 
         float currBsdfPdf = 0.0f;
         bool currBounceDiffuse = false;
         float metallic = mat.metallic;
 
-        // ... (rest of the traceRay logic remains similar, but uses `mat` directly)
-        // ... (NEE call needs to be updated)
         glm::vec3 directLighting(0.0f);
         if (metallic < 1.0f && lightingMode != LIGHTING_MODE_INDIRECT) {
              directLighting = sampleDirectLightingContribution(
@@ -225,17 +223,17 @@ __device__ glm::vec3 traceRay(
         }
         radiance += directLighting;
 
-        // ... (material sampling logic)
-        // This part needs careful refactoring to use the new unified structure
-        // For now, let's assume a simple diffuse bounce to test the structure
         if (lightingMode != LIGHTING_MODE_DIRECT) {
-            glm::vec3 bounceDir = cosineSampleHemisphere(rec.normal, seed);
-            throughput *= mat.albedo; // Simplified
+            glm::vec3 bounceDir = 
+                enableDiffuseImportanceSampling ? 
+                cosineSampleHemisphere(rec.normal, seed) : 
+                uniformSampleHemisphere(rec.normal, seed);
+            throughput *= mat.albedo; // 简化
             r = Ray(rec.point + rec.normal * 0.001f, bounceDir);
             prevBsdfPdf = bsdfPdf(true, fmaxf(0.0f, glm::dot(rec.normal, bounceDir)));
             prevBounceDiffuse = true;
         } else {
-            // break; // No more bounces in direct lighting mode
+            break; // 直接光照模式下不再反弹
         }
 
 

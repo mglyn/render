@@ -26,7 +26,7 @@ public:
     void freeSceneGPU();
 
     const TriangleGPU* getTrianglesGPU() const { return d_triangles_; }
-    const MaterialGPU* getMaterialsGPU() const { return d_materials_; }
+    const MaterialGpu* getMaterialsGPU() const { return d_materials_; }
     const BVHNodeGPU* getBvhNodesGPU() const { return d_bvhNodes_; }
     const int* getTriangleIndicesGPU() const { return d_triIndices_; }
     const int* getLightIndicesGPU() const { return d_lightIndices_; }
@@ -40,14 +40,14 @@ private:
 
     // Unified scene data on CPU (for building)
     std::vector<TriangleGPU> host_triangles_;
-    std::vector<MaterialGPU> host_materials_;
+    std::vector<MaterialGpu> host_materials_;
     std::vector<BVHNode> host_bvh_nodes_;
     std::vector<int> host_tri_indices_;
     std::vector<int> host_light_indices_;
 
     // Unified scene data on GPU (device pointers)
     TriangleGPU* d_triangles_ = nullptr;
-    MaterialGPU* d_materials_ = nullptr;
+    MaterialGpu* d_materials_ = nullptr;
     BVHNodeGPU* d_bvhNodes_ = nullptr;
     int* d_triIndices_ = nullptr;
     int* d_lightIndices_ = nullptr;

@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 
 #include "struct/bvhNodeGpu.h"
+#include "struct/materialGpu.h"
 #include "struct/shapeGpu.h"
 
 // GPU端模型数据结构
@@ -14,7 +15,7 @@ struct ModelGPU {
     TriangleGPU* triangles;
     int triangleCount;
 
-    MaterialGPU* materials;
+    MaterialGpu* materials;
     int materialCount;
 };
 
@@ -27,7 +28,7 @@ struct IlluminantGPU {
     TriangleGPU* triangles;
     int triangleCount;
 
-    MaterialGPU* materials;
+    MaterialGpu* materials;
     int materialCount;
 
     glm::vec3 emission; 

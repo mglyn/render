@@ -3,6 +3,7 @@
 struct GLFWwindow;
 class Scene;
 class CudaPathTracingRenderer; // 来自 renderer 命名空间之外
+class Camera;
 
 namespace ui {
 
@@ -12,5 +13,5 @@ void beginFrame();
 void endFrame();
 
 // 在这里添加你的UI组件声明
-void renderUI(int& rendererMode, double fps, CudaPathTracingRenderer* renderer);
+void renderUI(int& rendererMode, double fps, CudaPathTracingRenderer* renderer, Camera& camera);
 } // namespace ui

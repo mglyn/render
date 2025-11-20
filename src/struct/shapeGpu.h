@@ -2,13 +2,6 @@
 
 #include <glm/glm.hpp>
 
-// GPU 侧材质（与 CPU 侧 Material 保持布局兼容）
-struct MaterialGPU {
-	glm::vec3 albedo;
-	glm::vec3 emission;
-	float metallic;
-};
-
 enum ShapeTypeGPU {
 	SHAPE_SPHERE_GPU = 0,
 	SHAPE_TRIANGLE_GPU = 1,
