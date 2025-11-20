@@ -1,3 +1,6 @@
 [submodule "thirdParty/rapidobj"]
 	path = thirdParty/rapidobj
 	url = https://github.com/guybrush77/rapidobj
+[submodule "thirdParty/glfw"]
+	path = thirdParty/glfw
+	url = https://github.com/glfw/glfw
