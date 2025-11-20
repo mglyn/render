@@ -8,6 +8,9 @@ An interactive path tracing sample on Windows using CUDA–OpenGL interop (PBO).
 - Procedural scattering of many OBJ models (example: 100 randomized dragons with random color + emission probability)
 - GPU accumulation buffer (progressive refinement / noise reduction)
 
+  ![](./pic/2.png "")
+  ![](./pic/1.png "")
+
 ## Core Pipeline
 1. Application init: Window → OpenGL → ImGui → GPU PBO → Scene (scatter models)
 2. Scene collects triangles from all `Model` objects, builds a single BVH, gathers materials & light triangle indices.
