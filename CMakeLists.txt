@@ -1,11 +1,7 @@
-# filepath: c:\Users\12037\Desktop\render\CMakeLists.txt
 cmake_minimum_required(VERSION 3.18)  
 project(real_time_cuda_gl LANGUAGES CXX CUDA) 
 set(CMAKE_CXX_STANDARD 20)    
 
-# =====================
-# 可执行文件与源码组织
-# =====================
 add_executable(raytracer                
   src/main.cpp                          
   src/app/application.cpp               
@@ -29,38 +25,43 @@ target_include_directories(raytracer PRIVATE
   ${CMAKE_SOURCE_DIR}/src/scene        # scene层
   ${CMAKE_SOURCE_DIR}/src/struct         
   ${CMAKE_SOURCE_DIR}/src/bvh
-  ${CMAKE_SOURCE_DIR}/src/renderer)        
+  ${CMAKE_SOURCE_DIR}/src/renderer
+  ${CMAKE_SOURCE_DIR}/thirdParty/rapidobj/include  # RapidOBJ包含路径
+)        
 
-# ============
-# 查找OpenGL
-# ============
 find_package(OpenGL REQUIRED)    
 
-# =============
-# GLFW (源码构建)
-# =============
 add_subdirectory(thirdParty/glfw)
-
-# =============
-# ImGui
-# =============
-add_subdirectory(thirdParty/imgui-1.92.4)
-
-# =============
-# rapidobj
-# =============
 add_subdirectory(thirdParty/rapidobj)
-
-# =============
-# GLM (源码构建)
-# =============
+target_include_directories(raytracer PRIVATE thirdParty/rapidobj/include)  # RapidOBJ包含路径
 add_subdirectory(thirdParty/glm)
 
 # =============
-# GLAD 头文件与源码
+# ImGui (源码构建)
 # =============
-set(GLAD_ROOT "${CMAKE_SOURCE_DIR}/thirdParty/glad")                  # GLAD根目录
+# 创建ImGui静态库
+add_library(imgui_lib STATIC
+    thirdParty/imgui/imgui.cpp
+    thirdParty/imgui/imgui_draw.cpp
+    thirdParty/imgui/imgui_tables.cpp
+    thirdParty/imgui/imgui_widgets.cpp
+    thirdParty/imgui/backends/imgui_impl_glfw.cpp
+    thirdParty/imgui/backends/imgui_impl_opengl3.cpp
+)
+# 设置ImGui包含目录
+target_include_directories(imgui_lib PUBLIC
+    thirdParty/imgui
+    thirdParty/imgui/backends
+)
+# 链接依赖
+target_link_libraries(imgui_lib PUBLIC glfw OpenGL::GL)
+# 设置C++标准
+set_target_properties(imgui_lib PROPERTIES CXX_STANDARD ${CMAKE_CXX_STANDARD})
 
+# =====================
+# GLAD设置
+# =====================
+set(GLAD_ROOT "${CMAKE_SOURCE_DIR}/thirdParty/glad")                  # GLAD根目录
 if(EXISTS "${GLAD_ROOT}/include/glad/glad.h")
   target_include_directories(raytracer PRIVATE "${GLAD_ROOT}/include")
   if(EXISTS "${GLAD_ROOT}/src/glad.c")
@@ -78,6 +79,7 @@ target_link_libraries(raytracer PRIVATE
   OpenGL::GL        # OpenGL库
   imgui_lib         # ImGui库
   glm               # GLM库 (通过add_subdirectory构建)
+  rapidobj          # RapidOBJ库 (通过add_subdirectory构建)
 )
 
 # =====================
