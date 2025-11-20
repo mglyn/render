@@ -1,10 +1,11 @@
-#include "model.h"
-#include "bvh/bvh.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <limits>
 #include <tuple>
+
+#include "model.h"
+#include "bvh/bvh.h"
 
 Model::Model() : name_("") {
     updateModelMatrix();
@@ -26,14 +27,13 @@ bool Model::loadObj(const std::string &path, const Material &mat)
     if (!ifs.is_open())
         return false;
     std::vector<glm::vec3> positions;
-    positions.reserve(1024);
     std::vector<glm::vec3> normals;
-    normals.reserve(1024);
     std::vector<glm::vec2> texcoords;
-    texcoords.reserve(1024);
     std::string line;
     while (std::getline(ifs, line))
     {
+                //std::cout<<" !";
+
         if (line.empty() || line[0] == '#')
             continue;
         std::istringstream iss(line);
@@ -96,6 +96,7 @@ bool Model::loadObj(const std::string &path, const Material &mat)
 
             for (size_t k = 1; k + 1 < verts.size(); ++k)
             {
+
                 auto t1_indices = parseIdx(verts[k]);
                 auto t2_indices = parseIdx(verts[k + 1]);
 
@@ -132,12 +133,15 @@ bool Model::loadObj(const std::string &path, const Material &mat)
 
                 tri.mat = defaultMaterial_;
                 triangles_.push_back(tri);
+
             }
         }
     }
     triIndices_.resize(triangles_.size());
     for (size_t i = 0; i < triangles_.size(); ++i)
         triIndices_[i] = static_cast<int>(i);
+
+    
     return true;
 }
 

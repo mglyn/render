@@ -1,46 +1,50 @@
 cmake_minimum_required(VERSION 3.18)  
 project(real_time_cuda_gl LANGUAGES CXX CUDA) 
-set(CMAKE_CXX_STANDARD 20)             
-
-# ============
-# 查找OpenGL
-# ============
-find_package(OpenGL REQUIRED)          
+set(CMAKE_CXX_STANDARD 20)    
 
 # =====================
 # 可执行文件与源码组织
 # =====================
-add_executable(raytracer                # 定义主可执行文件raytracer
-  src/main.cpp                      # 主入口
-  src/app/application.cpp               # 应用程序管理
-  src/renderer/path_tracer.cu                # CUDA路径追踪核
+add_executable(raytracer                
+  src/main.cpp                          
+  src/app/application.cpp               
+  src/renderer/path_tracer.cu           # CUDA路径追踪核
   src/renderer/pt_utils.cu
   src/scene/camera.cpp                  # 相机实现
   src/scene/scene.cpp                   # 场景管理
   src/scene/model.cpp                   # 模型与BVH实现
   src/bvh/bvh.cpp
-  src/renderer/intersect.cu               # 场景求交实现
-  # Shape POD 定义在 shape.h（仅头文件）；后续如需单独加速结构可新增 .cu
+  src/renderer/intersect.cu             # 场景求交实现
   src/app/gpu_resources.cpp             # GPU资源管理
   src/app/window.cpp                    # 窗口管理
   src/renderer/cuda_path_tracing_renderer.cpp  # CUDA路径追踪渲染器
   src/app/ui.cpp                        # UI实现
-  src/app/shader.cpp                  # 新增：着色器管理
+  src/app/shader.cpp                    # 着色器管理
 )
 
 target_include_directories(raytracer PRIVATE 
-  ${CMAKE_SOURCE_DIR}/src              # 根src目录（头文件）
+  ${CMAKE_SOURCE_DIR}/src              # 根src目录
   ${CMAKE_SOURCE_DIR}/src/app          # app层
   ${CMAKE_SOURCE_DIR}/src/scene        # scene层
   ${CMAKE_SOURCE_DIR}/src/struct         
   ${CMAKE_SOURCE_DIR}/src/bvh
-  ${CMAKE_SOURCE_DIR}/src/renderer)         
+  ${CMAKE_SOURCE_DIR}/src/renderer)        
+
 # =====================
 # 第三方库路径设置
 # =====================
-set(GLFW_ROOT "${CMAKE_SOURCE_DIR}/thirdParty/glfw-3.3.8.bin.WIN64") # GLFW根目录
 set(GLAD_ROOT "${CMAKE_SOURCE_DIR}/thirdParty/glad")                  # GLAD根目录
 set(GLM_ROOT "${CMAKE_SOURCE_DIR}/thirdParty/glm-0.9.9.8")           # GLM根目录
+
+# ============
+# 查找OpenGL
+# ============
+find_package(OpenGL REQUIRED)    
+
+# =============
+# GLFW (源码构建)
+# =============
+add_subdirectory(thirdParty/glfw)
 
 # =============
 # ImGui
@@ -48,11 +52,9 @@ set(GLM_ROOT "${CMAKE_SOURCE_DIR}/thirdParty/glm-0.9.9.8")           # GLM根目
 add_subdirectory(thirdParty/imgui-1.92.4)
 
 # =============
-# GLFW 头文件
+# rapidobj
 # =============
-if(EXISTS "${GLFW_ROOT}/include/GLFW/glfw3.h")
-  target_include_directories(raytracer PRIVATE "${GLFW_ROOT}/include")
-endif()
+add_subdirectory(thirdParty/rapidobj)
 
 # =============
 # GLAD 头文件与源码
@@ -74,19 +76,13 @@ if(EXISTS "${GLM_ROOT}/glm/glm.hpp")
 endif()
 
 # =====================
-# GLFW库链接与DLL拷贝
+# 统一库链接
 # =====================
-set(GLFW_LIB "${GLFW_ROOT}/lib-vc2022/glfw3.lib") # 静态库路径
-if(EXISTS "${GLFW_LIB}")
-  target_link_libraries(raytracer PRIVATE "${GLFW_LIB}" OpenGL::GL imgui_lib) # 链接GLFW, OpenGL和ImGui
-  # 拷贝DLL到输出目录，保证运行时依赖
-  file(GLOB GLFW_DLLS "${GLFW_ROOT}/lib-vc2022/*.dll" "${GLFW_ROOT}/*.dll")
-  foreach(d ${GLFW_DLLS})
-    add_custom_command(TARGET raytracer POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${d}" "$<TARGET_FILE_DIR:raytracer>" )
-  endforeach()
-else()
-  message(FATAL_ERROR "GLFW library not found at ${GLFW_LIB}. 请将预编译包放到thirdParty目录下.")
-endif()
+target_link_libraries(raytracer PRIVATE 
+  glfw              # GLFW库 (通过add_subdirectory构建)
+  OpenGL::GL        # OpenGL库
+  imgui_lib         # ImGui库
+)
 
 # =====================
 # CUDA分离编译设置

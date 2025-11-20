@@ -16,11 +16,8 @@ target_include_directories(imgui_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/backends
 )
 
-# 添加GLFW头文件路径
-set(GLFW_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../glfw-3.3.8.bin.WIN64")
-if(EXISTS "${GLFW_ROOT}/include/GLFW/glfw3.h")
-    target_include_directories(imgui_lib PRIVATE "${GLFW_ROOT}/include")
-endif()
+# 链接GLFW库（通过add_subdirectory构建）
+target_link_libraries(imgui_lib PUBLIC glfw)
 
 # 查找并链接OpenGL
 find_package(OpenGL REQUIRED)
