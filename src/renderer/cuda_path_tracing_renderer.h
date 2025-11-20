@@ -50,7 +50,7 @@ private:
     bool _enableDiffuseImportanceSampling = true;
     LightingMode _lightingMode = LIGHTING_MODE_MIS;
     bool _enableRussianRoulette = true;
-    int _rouletteStartDepth = 3;
+    int _rouletteStartDepth = 2;
 
 public:
     int getSpp() const { return _spp; }

@@ -155,4 +155,13 @@ void Model::updateModelMatrix() {
     modelMatrix_ = glm::scale(modelMatrix_, scale_);
 }
 
+void Model::addTriangle(const Triangle& triangle) {
+    triangles_.push_back(triangle);
+    triIndices_.push_back(static_cast<int>(triangles_.size() - 1));
+    triMaterialIndices_.push_back(0);
+    if (materials_.empty()) {
+        materials_.push_back(defaultMaterial_);
+    }
+}
+
 

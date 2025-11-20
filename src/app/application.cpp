@@ -64,6 +64,43 @@ void Application::createScene() {
 
     _camera->setPosition(glm::vec3(0.0f, 0.0f, 2.0f));
     
+    const float wallDistance = 1.6f;
+    const float wallHalfHeight = 1.5f;
+    const float wallDepth = 2.0f;
+    auto makeWallPlane = [&](const Material& mat) {
+        auto wall = std::make_unique<Model>(mat);
+        glm::vec3 v0(0.0f, -wallHalfHeight, -wallDepth);
+        glm::vec3 v1(0.0f, -wallHalfHeight, wallDepth);
+        glm::vec3 v2(0.0f, wallHalfHeight, wallDepth);
+        glm::vec3 v3(0.0f, wallHalfHeight, -wallDepth);
+        wall->addTriangle({v0, v2, v1, mat});
+        wall->addTriangle({v0, v3, v2, mat});
+        return wall;
+    };
+
+    // 红/绿左右墙
+    Material redWallMat{glm::vec3(0.8f, 0.1f, 0.1f), 0.0f};
+    _scene->addModel(makeWallPlane(redWallMat), glm::vec3(-wallDistance, 0.0f, 0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+    Material greenWallMat{glm::vec3(0.1f, 0.8f, 0.1f), 0.0f};
+    auto greenWall = makeWallPlane(greenWallMat);
+    _scene->addModel(std::move(greenWall), glm::vec3(wallDistance, 0.0f, 0.0f), glm::vec3(0.0f, 180.0f, 0.0f), glm::vec3(1.0f));
+
+    // 背景墙
+    Material backWallMat{glm::vec3(0.4f, 0.4f, 0.45f), 0.0f};
+    auto backWall = makeWallPlane(backWallMat);
+    _scene->addModel(std::move(backWall), glm::vec3(0.0f, 0.0f, -wallDepth), glm::vec3(0.0f, 90.0f, 0.0f), glm::vec3(1.0f));
+
+    // 地板
+    Material floorMat{glm::vec3(0.5f, 0.5f, 0.55f), 0.0f};
+    auto floor = makeWallPlane(floorMat);
+    _scene->addModel(std::move(floor), glm::vec3(0.0f, -wallHalfHeight, 0.0f), glm::vec3(0.0f, 0.0f, 90.0f), glm::vec3(1.0f));
+
+    // 天花板
+    Material ceilingMat{glm::vec3(0.35f, 0.35f, 0.4f), 0.0f};
+    auto ceiling = makeWallPlane(ceilingMat);
+    _scene->addModel(std::move(ceiling), glm::vec3(0.0f, wallHalfHeight, 0.0f), glm::vec3(0.0f, 0.0f, -90.0f), glm::vec3(1.0f));
+
+
     // 加载 OBJ 模型
     Material dragonMaterial{glm::vec3(0.7f, 0.7f, 0.9f), 0.0f}; // 淡蓝色，轻微金属感
     auto dragonModel = std::make_unique<Model>(dragonMaterial);

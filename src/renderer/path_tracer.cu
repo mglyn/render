@@ -190,7 +190,7 @@ namespace {
         return baseWeight * brdf * lightEmission * (cosThetaSurface / pdfDir) * weightNEE;
     }
 
-    // 路径追踪主循环：Fresnel概率混合采样，累积throughput
+    // 路径追踪主循环
     __device__ glm::vec3 traceRay(const ModelGPU* models, int modelCount,
                                   const IlluminantGPU* illuminants, int illuminantCount,
                                   Ray r, uint32_t &seed, int maxDepth,
@@ -249,46 +249,38 @@ namespace {
                     }
                 }
                 radiance += throughput * rec.emission * weight;
+                break; // 命中光源后直接终止光线
             }
 
-            glm::vec3 throughputPrev = throughput;
             float currBsdfPdf = 0.0f;
             bool currBounceDiffuse = false;
 
-            // 基于金属度的离散混合采样。
-            // 为了保持无偏，需要对选择的采样策略按其选择概率进行重要性权重校正。
-            float pSpec = rec.metallic;
-            float pDiff = 1.0f - pSpec;
-            float choice = rand01(seed);
-            if (choice < pSpec) {
-                // 镜面反射分支（delta分布）。
-                if (lightingMode == LIGHTING_MODE_DIRECT) {
-                    break;
-                }
-                glm::vec3 refl = glm::reflect(glm::normalize(r.direction()), rec.normal);
-                throughput = throughputPrev;
-                // 将反射率按选择概率归一化，确保无偏（BRDF/p(selection)).
-                if (pSpec > 0.0f) throughput *= rec.albedo / pSpec;
-                r = Ray(rec.point + rec.normal * 0.001f, glm::normalize(refl));
-                currBsdfPdf = 0.0f;
-                currBounceDiffuse = false;
-            } else {
-                // 漫反射分支：根据开关选择是否使用余弦加权半球重要性采样
-                if (pDiff <= 0.0f) {
-                    break;
-                }
+            // 基于金属度的确定性混合，消除随机分支
+            float metallic = rec.metallic;
 
+            // 1. 计算漫反射分支贡献 (无条件执行)
+            glm::vec3 diffuseRadiance(0.0f);
+            glm::vec3 diffuseThroughput = throughput;
+            Ray diffuseRay = r;
+            float diffuseBsdfPdf = 0.0f;
+            bool diffuseBounce = false;
+
+            if (metallic < 1.0f) {
                 bool allowDirect = (lightingMode != LIGHTING_MODE_INDIRECT);
                 bool allowIndirect = (lightingMode != LIGHTING_MODE_DIRECT);
-
-                float invPDiff = 1.0f / pDiff;
-                glm::vec3 baseWeight = throughputPrev * invPDiff;
+                
                 glm::vec3 brdf = rec.albedo / kPi;
 
-                glm::vec3 bounceDir(0.0f);
-                float cosThetaBounce = 0.0f;
-                float pdfBsdfSample = 0.0f;
-                if (allowIndirect || lightingMode == LIGHTING_MODE_MIS) { // 间接光
+                // 直接光照贡献 (NEE)
+                if (allowDirect) {
+                    // 注意：这里的 baseWeight 和 pDiff 变为 1.0，因为我们不再随机选择
+                    diffuseRadiance = sampleDirectLightingContribution(models, modelCount, illuminants, illuminantCount, seed, rec.point, rec.normal, brdf, throughput, 1.0f, enableDiffuseImportanceSampling, lightingMode);
+                }
+
+                // 间接光照光线
+                if (allowIndirect) {
+                    glm::vec3 bounceDir;
+                    float cosThetaBounce;
                     if (enableDiffuseImportanceSampling) {
                         bounceDir = cosineSampleHemisphere(rec.normal, seed);
                         cosThetaBounce = fmaxf(glm::dot(rec.normal, bounceDir), 0.0f);
@@ -296,24 +288,43 @@ namespace {
                         bounceDir = uniformSampleHemisphere(rec.normal, seed);
                         cosThetaBounce = fmaxf(glm::dot(rec.normal, bounceDir), 0.0f);
                     }
-                    pdfBsdfSample = bsdfPdf(enableDiffuseImportanceSampling, cosThetaBounce);
+                    
+                    diffuseThroughput *= rec.albedo; // Lambertian BRDF * cos(theta) / pdf = albedo
+                    diffuseRay = Ray(rec.point + rec.normal * 0.001f, bounceDir);
+                    diffuseBsdfPdf = bsdfPdf(enableDiffuseImportanceSampling, cosThetaBounce);
+                    diffuseBounce = true;
+                } else {
+                    // 如果不允许间接光，则漫反射路径终止
+                    diffuseThroughput = glm::vec3(0.0f);
                 }
-
-                if (allowDirect) {
-                    radiance += sampleDirectLightingContribution(models, modelCount, illuminants, illuminantCount, seed, rec.point, rec.normal, brdf, baseWeight, pDiff, enableDiffuseImportanceSampling, lightingMode);
-                }
-
-                if (!allowIndirect) {
-                    prevBsdfPdf = 0.0f;
-                    prevBounceDiffuse = false;
-                    break;
-                }
-
-                throughput = throughputPrev * rec.albedo * invPDiff;
-                r = Ray(rec.point + rec.normal * 0.001f, bounceDir);
-                currBounceDiffuse = true;
-                currBsdfPdf = pDiff > 0.0f ? pDiff * pdfBsdfSample : 0.0f;
             }
+
+            // 2. 计算镜面反射分支贡献 (无条件执行)
+            glm::vec3 specularThroughput = throughput;
+            Ray specularRay = r;
+            if (metallic > 0.0f) {
+                if (lightingMode != LIGHTING_MODE_DIRECT) {
+                    glm::vec3 refl = glm::reflect(glm::normalize(r.direction()), rec.normal);
+                    specularThroughput *= rec.albedo; // 理想镜面反射的BRDF是 albedo * delta()
+                    specularRay = Ray(rec.point + rec.normal * 0.001f, glm::normalize(refl));
+                } else {
+                    // 如果只允许直接光，则镜面反射路径终止
+                    specularThroughput = glm::vec3(0.0f);
+                }
+            }
+
+            // 3. 线性混合结果
+            radiance += diffuseRadiance * (1.0f - metallic);
+            throughput = glm::mix(diffuseThroughput, specularThroughput, metallic);
+            
+            // 混合下一条光线。注意：当 metallic 为 0 或 1 时，这会精确选择其中一条光线
+            glm::vec3 nextDir = glm::normalize(glm::mix(diffuseRay.direction(), specularRay.direction(), metallic));
+            r = Ray(rec.point + rec.normal * 0.001f, nextDir);
+
+            // 更新PDF和状态
+            currBsdfPdf = glm::mix(diffuseBsdfPdf, 0.0f, metallic);
+            currBounceDiffuse = diffuseBounce && (metallic < 1.0f);
+
             // 俄罗斯轮盘赌：当 throughput 很小时随机终止以减少无用的追踪路径。
             // 使用亮度作为衡量（L1或L2均可），并保证在继续时对 throughput 进行重要性权重校正以保持无偏。
             if (enableRussianRoulette) {
@@ -327,6 +338,12 @@ namespace {
                     }
                     throughput /= contProb;
                 }
+            }
+            // 确定性终止：当 throughput 低于阈值时直接终止，以减少分支。
+            // 这是一个有偏的优化，会损失一些能量，但能提升性能。
+            float max_comp = fmaxf(throughput.r, fmaxf(throughput.g, throughput.b));
+            if (max_comp < 0.1f) { // 使用一个固定的能量阈值
+                break;
             }
 
             prevBsdfPdf = currBsdfPdf;

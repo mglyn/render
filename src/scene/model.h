@@ -33,6 +33,8 @@ public:
     const glm::vec3& emission() const { return emission_; }
     bool empty() const { return triangles_.empty(); }
 
+    void addTriangle(const Triangle& triangle);
+
 private:
     // void updateModelMatrix(); // 移至 public
 
